@@ -8,8 +8,11 @@ import (
 
 	"github.com/cyverse-de/configurate"
 	"github.com/cyverse-de/go-mod/otelutils"
-	"github.com/cyverse-de/group-propagator/logging"
 	"github.com/cyverse-de/messaging/v9"
+
+	"github.com/cyverse-de/group-propagator/client/groups"
+	"github.com/cyverse-de/group-propagator/logging"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -88,6 +91,14 @@ func main() {
 	}
 
 	go listenClient.Listen()
+
+	gn := "iplant:de:qa:users:de-users"
+	gc := groups.NewGroupsClient(cfg.GetString("iplant_groups.base"), cfg.GetString("iplant_groups.user"))
+	g, err := gc.GetGroupByName(context.Background(), gn)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Unable to get group"))
+	}
+	log.Infof("%+v", g)
 
 	queueName := getQueueName(cfg.GetString("amqp.queue_prefix"))
 	listenClient.AddConsumerMulti(
