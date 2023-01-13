@@ -29,6 +29,17 @@ func NewGroupsClient(base, user string) *GroupsClient {
 // get group by name
 // list group members
 
+func (c *GroupsClient) uriPath(ctx context.Context, pathParts ...string) (string, error) {
+	base, err := url.Parse(c.GroupsBase)
+	if err != nil {
+		return "", err
+	}
+	uri := base.JoinPath(pathParts...)
+	uri.RawQuery = fmt.Sprintf("user=%s", c.GroupsUser)
+
+	return uri.String(), nil
+}
+
 // List groups under a provided prefix, using the REST service
 func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) ([]Group, error) {
 	var gs []Group
@@ -39,18 +50,12 @@ func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) ([
 func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Group, error) {
 	var g Group
 
-	uristr, err := url.JoinPath(c.GroupsBase, "groups", groupName)
+	uri, err := c.uriPath(ctx, "groups", groupName)
 	if err != nil {
 		return g, err
 	}
 
-	uri, err := url.Parse(uristr)
-	if err != nil {
-		return g, err
-	}
-
-	uri.RawQuery = fmt.Sprintf("user=%s", c.GroupsUser)
-	req, err := http.NewRequestWithContext(ctx, "GET", uri.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
 	if err != nil {
 		return g, err
 	}
