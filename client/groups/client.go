@@ -105,5 +105,24 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 // List members of a group using the REST service, given a name
 func (c *GroupsClient) GetGroupMembers(ctx context.Context, groupName string) (GroupMembers, error) {
 	var gm GroupMembers
-	return gm, nil
+	uri, err := c.uriPath(ctx, "", "groups", groupName, "members")
+	if err != nil {
+		return gm, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+	if err != nil {
+		return gm, err
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return gm, err
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return gm, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&gm)
+	return gm, err
 }
