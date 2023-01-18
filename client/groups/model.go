@@ -23,6 +23,10 @@ type Group struct {
 	IDIndex          string `json:"id_index"`
 } // should we add the 'detail' here?
 
+type GroupsList struct {
+	Groups []Group `json:"groups"`
+}
+
 type GroupMembers struct {
 	Members []Subject `json:"members"`
 }
