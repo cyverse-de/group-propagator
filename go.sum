@@ -73,8 +73,12 @@ github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfc
 github.com/cyverse-de/configurate v0.0.0-20190318152107-8f767cb828d9/go.mod h1:QMZ4G8bX5f0vKiH9+/2JqV687mN1byJ18tjZwIJIagI=
 github.com/cyverse-de/configurate v0.0.0-20220113221928-13d34aae3f0f h1:AK5QLVfwfGQM6HrOF/6IQ37NEAx5yL9Kwd47BTeuSjo=
 github.com/cyverse-de/configurate v0.0.0-20220113221928-13d34aae3f0f/go.mod h1:WHo3kihlw77gqpWScUucrBgAV0t63mkoc3uD6GXnMBo=
+github.com/cyverse-de/go-mod/logging v0.0.2 h1:MhmyAXl1UgxwXUgP2C5/jl7QAsF+Bs+r7Cs0SSZYLlI=
+github.com/cyverse-de/go-mod/logging v0.0.2/go.mod h1:KkvW+/cMUdkfsJAD3uqMxHEb5naX8bwnO6z8znqHILQ=
 github.com/cyverse-de/go-mod/otelutils v0.0.3 h1:4DAxvkZhf7YRUJeHaCyodbWv7t+tLzFchw6B4GrDsZ0=
 github.com/cyverse-de/go-mod/otelutils v0.0.3/go.mod h1:h75ZnGtwiwGwHgqpxFQL0912bnHMrcOKfyGAv2+q2Vw=
+github.com/cyverse-de/go-mod/restutils v0.0.1 h1:xDHHlGlbIry/amrhUvJ1+A854rka6K4FlnAKT5Qrgxk=
+github.com/cyverse-de/go-mod/restutils v0.0.1/go.mod h1:6lZeUxv2AoCzveWB+SFJuQ3i6wFaJAEFmDP78xMzlCc=
 github.com/cyverse-de/messaging/v9 v9.1.5 h1:OWI2iCKID2ZDFPRFXj8jaiP0Ef/RxQfMNcklF4cRFLo=
 github.com/cyverse-de/messaging/v9 v9.1.5/go.mod h1:bGZRCqilJTPBmWrgsyuupi3KRgkjQNs8yYNxZWZh8DI=
 github.com/cyverse-de/model/v6 v6.0.1 h1:6c0Tkl0hIbaJj7paI872QAPyvX9bhZNH93o37zDZG0s=

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cyverse-de/group-propagator/client"
+	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/group-propagator/logging"
 
 	"github.com/sirupsen/logrus"
@@ -68,7 +68,7 @@ func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (G
 	if err != nil {
 		return gs, err
 	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return gs, client.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
+		return gs, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
 	}
 	defer resp.Body.Close()
 
@@ -94,7 +94,7 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 	if err != nil {
 		return g, err
 	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return g, client.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
+		return g, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
 	}
 	defer resp.Body.Close()
 

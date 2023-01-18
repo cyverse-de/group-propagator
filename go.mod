@@ -4,7 +4,9 @@ go 1.18
 
 require (
 	github.com/cyverse-de/configurate v0.0.0-20220113221928-13d34aae3f0f
+	github.com/cyverse-de/go-mod/logging v0.0.2
 	github.com/cyverse-de/go-mod/otelutils v0.0.3
+	github.com/cyverse-de/go-mod/restutils v0.0.1
 	github.com/cyverse-de/messaging/v9 v9.1.5
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
