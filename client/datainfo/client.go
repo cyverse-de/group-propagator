@@ -110,7 +110,7 @@ func (d *DataInfoClient) UpdateGroupMembers(ctx context.Context, name string, me
 		return g, errors.Wrap(err, "Failed to build URL")
 	}
 
-	postGroup := Group{Name: name, Members: members}
+	postGroup := Group{Members: members}
 	msg, err := json.Marshal(postGroup)
 	if err != nil {
 		return g, errors.Wrap(err, "Failed to marshal group to create")

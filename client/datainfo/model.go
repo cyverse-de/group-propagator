@@ -6,7 +6,7 @@ type User struct {
 }
 
 type Group struct {
-	Name    string   `json:"name"`
+	Name    string   `json:"name,omitempty"`
 	Members []string `json:"members"`
 }
 
