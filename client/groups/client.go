@@ -51,8 +51,8 @@ func (c *GroupsClient) uriPath(ctx context.Context, rawQuery string, pathParts .
 }
 
 // List groups under a provided prefix, using the REST service
-func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (GroupsList, error) {
-	var gs GroupsList
+func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (GroupList, error) {
+	var gs GroupList
 
 	uri, err := c.uriPath(ctx, fmt.Sprintf("search=%s", prefix), "groups")
 	if err != nil {
@@ -81,6 +81,32 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 	var g Group
 
 	uri, err := c.uriPath(ctx, "", "groups", groupName)
+	if err != nil {
+		return g, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+	if err != nil {
+		return g, err
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return g, err
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return g, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(&g)
+	return g, err // if err != nil this still behaves right
+}
+
+// Get the basic group information for a group from the REST service, given an ID
+func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group, error) {
+	var g Group
+
+	uri, err := c.uriPath(ctx, "", "groups", "id", groupID)
 	if err != nil {
 		return g, err
 	}
