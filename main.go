@@ -9,7 +9,6 @@ import (
 	"github.com/cyverse-de/configurate"
 	l "github.com/cyverse-de/go-mod/logging"
 	"github.com/cyverse-de/go-mod/otelutils"
-	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/messaging/v9"
 
 	"github.com/cyverse-de/group-propagator/client/datainfo"
@@ -95,13 +94,68 @@ func main() {
 
 	go listenClient.Listen()
 
-	gn := "iplant:de:qa:users:de-users"
+	// Create clients
 	gc := groups.NewGroupsClient(cfg.GetString("iplant_groups.base"), cfg.GetString("iplant_groups.user"))
-	g, err := gc.GetGroupByName(context.Background(), gn)
-	if err != nil {
-		log.Fatal(errors.Wrap(err, "Unable to get group"))
-	}
-	log.Infof("%+v", g)
+	dc := datainfo.NewDataInfoClient(cfg.GetString("data_info.base"), cfg.GetString("irods.user"))
+
+	/*
+		gn := "iplant:de:qa:users:de-users"
+		g, err := gc.GetGroupByName(context.Background(), gn)
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to get group"))
+		}
+		log.Infof("de-users group: %+v", g)
+
+		gs, err := gc.ListGroupsByPrefix(context.Background(), "iplant:de:qa:teams:qa-test1:")
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to get groups"))
+		}
+		log.Infof("qa-test1 teams: %+v", gs)
+
+		gn2 := "iplant:de:qa:teams:qa-test1:privateTeam"
+		gm, err := gc.GetGroupMembers(context.Background(), gn2)
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to get group members"))
+		}
+		log.Infof("team members: %+v", gm)
+
+		gcr, err := dc.CreateGroup(context.Background(), "@gctest", []string{"mian"})
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to create group"))
+		}
+		log.Infof("created group: %+v", gcr)
+
+		groupmem, err := dc.ListGroupMembers(context.Background(), "@gctest")
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to get group members"))
+		}
+		log.Infof("group members: %+v", groupmem)
+
+		gup, err := dc.UpdateGroupMembers(context.Background(), "@gctest", []string{"mian", "tedgin"})
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to update group"))
+		}
+		log.Infof("created group: %+v", gup)
+
+		err = dc.DeleteGroup(context.Background(), "@gctest")
+		if restutils.GetStatusCode(err) == 404 {
+			log.Info("Got 404")
+		} else if err != nil {
+			log.Fatal(errors.Wrap(err, "Unable to delete group"))
+		}
+	*/
 
 	queueName := getQueueName(cfg.GetString("amqp.queue_prefix"))
 	listenClient.AddConsumerMulti(
