@@ -9,8 +9,3 @@ type Group struct {
 	Name    string   `json:"name,omitempty"`
 	Members []string `json:"members"`
 }
-
-type ParsedGroup struct {
-	Name    string `json:"name"`
-	Members []User `json:"members"`
-}
