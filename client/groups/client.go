@@ -9,6 +9,7 @@ import (
 
 	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/group-propagator/logging"
+	"github.com/pkg/errors"
 
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -27,14 +28,6 @@ func NewGroupsClient(base, user string) *GroupsClient {
 	return &GroupsClient{base, user}
 }
 
-// for crawling:
-// list groups under prefix
-// list group members
-
-// for individual:
-// get group by name
-// list group members
-
 func (c *GroupsClient) uriPath(ctx context.Context, rawQuery string, pathParts ...string) (string, error) {
 	base, err := url.Parse(c.GroupsBase)
 	if err != nil {
@@ -50,6 +43,27 @@ func (c *GroupsClient) uriPath(ctx context.Context, rawQuery string, pathParts .
 	return uri.String(), nil
 }
 
+func (c *GroupsClient) getJSON(ctx context.Context, uri string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return errors.Wrap(err, "Failed creating request with context")
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "Failed requesting URL")
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("GET %s returned %d", uri, resp.StatusCode))
+	}
+	defer resp.Body.Close()
+
+	err = json.NewDecoder(resp.Body).Decode(target)
+	if err != nil {
+		return errors.Wrap(err, "Failed decoding JSON")
+	}
+	return err
+}
+
 // List groups under a provided prefix, using the REST service
 func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (GroupList, error) {
 	var gs GroupList
@@ -59,21 +73,8 @@ func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (G
 		return gs, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
-	if err != nil {
-		return gs, err
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return gs, err
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return gs, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
-	}
-	defer resp.Body.Close()
-
-	err = json.NewDecoder(resp.Body).Decode(&gs)
-	return gs, nil
+	err = c.getJSON(ctx, uri, &gs)
+	return gs, err
 }
 
 // Get the basic group information for a group from the REST service, given a name
@@ -85,21 +86,8 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 		return g, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
-	if err != nil {
-		return g, err
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return g, err
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return g, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
-	}
-	defer resp.Body.Close()
-
-	err = json.NewDecoder(resp.Body).Decode(&g)
-	return g, err // if err != nil this still behaves right
+	err = c.getJSON(ctx, uri, &g)
+	return g, err
 }
 
 // Get the basic group information for a group from the REST service, given an ID
@@ -111,21 +99,8 @@ func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group,
 		return g, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
-	if err != nil {
-		return g, err
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return g, err
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return g, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
-	}
-	defer resp.Body.Close()
-
-	err = json.NewDecoder(resp.Body).Decode(&g)
-	return g, err // if err != nil this still behaves right
+	err = c.getJSON(ctx, uri, &g)
+	return g, err
 }
 
 // List members of a group using the REST service, given a name
@@ -136,19 +111,6 @@ func (c *GroupsClient) GetGroupMembers(ctx context.Context, groupName string) (G
 		return gm, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
-	if err != nil {
-		return gm, err
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return gm, err
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return gm, restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("%s returned %d", uri, resp.StatusCode))
-	}
-	defer resp.Body.Close()
-
-	err = json.NewDecoder(resp.Body).Decode(&gm)
+	err = c.getJSON(ctx, uri, &gm)
 	return gm, err
 }
