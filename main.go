@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	"github.com/cyverse-de/configurate"
+	l "github.com/cyverse-de/go-mod/logging"
 	"github.com/cyverse-de/go-mod/otelutils"
+	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/messaging/v9"
 
+	"github.com/cyverse-de/group-propagator/client/datainfo"
 	"github.com/cyverse-de/group-propagator/client/groups"
 	"github.com/cyverse-de/group-propagator/logging"
 
@@ -55,7 +58,7 @@ func main() {
 	)
 
 	flag.Parse()
-	logging.SetupLogging(*logLevel)
+	l.SetupLogging(*logLevel)
 
 	var tracerCtx, cancel = context.WithCancel(context.Background())
 	defer cancel()
