@@ -69,6 +69,18 @@ func (d *DataInfoClient) reqJSON(ctx context.Context, method, uri string, body i
 
 }
 
+// Use status endpoint to check our data-info URI
+func (d *DataInfoClient) Check(ctx context.Context) error {
+	uri, err := url.Parse(d.DataInfoBase)
+	if err != nil {
+		return errors.Wrap(err, "Failed to parse data-info base URL")
+	}
+
+	uri.RawQuery = "expecting=data-info"
+
+	return d.reqJSON(ctx, http.MethodGet, uri.String(), nil, nil)
+}
+
 // Create IRODS Group
 func (d *DataInfoClient) CreateGroup(ctx context.Context, name string, members []string) (Group, error) {
 	var g Group

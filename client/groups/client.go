@@ -57,11 +57,25 @@ func (c *GroupsClient) getJSON(ctx context.Context, uri string, target any) erro
 	}
 	defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(target)
-	if err != nil {
-		return errors.Wrap(err, "Failed decoding JSON")
+	if target != nil {
+		err = json.NewDecoder(resp.Body).Decode(target)
+		if err != nil {
+			return errors.Wrap(err, "Failed decoding JSON")
+		}
 	}
 	return err
+}
+
+// Use status endpoint to check our iplant-groups URI
+func (c *GroupsClient) Check(ctx context.Context) error {
+	uri, err := url.Parse(c.GroupsBase)
+	if err != nil {
+		return errors.Wrap(err, "Failed to parse iplant-groups base URL")
+	}
+
+	uri.RawQuery = "expecting=iplant-groups"
+
+	return c.getJSON(ctx, uri.String(), nil)
 }
 
 // List groups under a provided prefix, using the REST service

@@ -96,7 +96,20 @@ func main() {
 
 	// Create clients
 	gc := groups.NewGroupsClient(cfg.GetString("iplant_groups.base"), cfg.GetString("iplant_groups.user"))
+	err = gc.Check(context.Background())
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Couldn't ping iplant-groups"))
+	} else {
+		log.Info("Pinged iplant-groups successfully")
+	}
+
 	dc := datainfo.NewDataInfoClient(cfg.GetString("data_info.base"), cfg.GetString("irods.user"))
+	err = dc.Check(context.Background())
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Couldn't ping data-info"))
+	} else {
+		log.Info("Pinged data-info successfully")
+	}
 
 	/*
 		gn := "iplant:de:qa:users:de-users"
