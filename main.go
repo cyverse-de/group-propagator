@@ -127,9 +127,9 @@ func main() {
 				// also crawl irods for deleted groups
 			} else if strings.HasPrefix(del.RoutingKey, "index.group.") {
 				groupID := del.RoutingKey[len("index.group."):]
-				err = propagator.PropagateGroupById(context.Background(), groupID)
-				// update/propagate a single group into irods
+				err = propagator.PropagateGroupById(ctx, groupID)
 			}
+
 			if err != nil {
 				log.Error(errors.Wrap(err, "Error handling message"))
 				err = del.Reject(!del.Redelivered)
