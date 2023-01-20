@@ -15,9 +15,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 var log = logging.Log.WithFields(logrus.Fields{"package": "client.datainfo"})
+
+const otelName = "github.com/cyverse-de/group-propagator/client/groups"
 
 type DataInfoClient struct {
 	DataInfoBase string
@@ -95,6 +98,9 @@ func (d *DataInfoClient) Check(ctx context.Context) error {
 
 // Create IRODS Group
 func (d *DataInfoClient) CreateGroup(ctx context.Context, name string, members []string) (Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "CreateGroup")
+	defer span.End()
+
 	var g Group
 
 	uri, err := d.uriPath(ctx, "groups")
@@ -114,6 +120,9 @@ func (d *DataInfoClient) CreateGroup(ctx context.Context, name string, members [
 
 // List Group Members
 func (d *DataInfoClient) ListGroupMembers(ctx context.Context, name string) (Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "ListGroupMembers")
+	defer span.End()
+
 	var g Group
 
 	uri, err := d.uriPath(ctx, "groups", name)
@@ -127,6 +136,9 @@ func (d *DataInfoClient) ListGroupMembers(ctx context.Context, name string) (Gro
 
 // Update Group Members
 func (d *DataInfoClient) UpdateGroupMembers(ctx context.Context, name string, members []string) (Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "UpdateGroupMembers")
+	defer span.End()
+
 	var g Group
 
 	uri, err := d.uriPath(ctx, "groups", name)
@@ -146,6 +158,9 @@ func (d *DataInfoClient) UpdateGroupMembers(ctx context.Context, name string, me
 
 // Delete Group
 func (d *DataInfoClient) DeleteGroup(ctx context.Context, name string) error {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "DeleteGroup")
+	defer span.End()
+
 	uri, err := d.uriPath(ctx, "groups", name)
 	if err != nil {
 		return errors.Wrap(err, "Failed to build URL")

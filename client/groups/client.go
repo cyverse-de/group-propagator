@@ -13,9 +13,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 var log = logging.Log.WithFields(logrus.Fields{"package": "client.groups"})
+
+const otelName = "github.com/cyverse-de/group-propagator/client/groups"
 
 type GroupsClient struct {
 	GroupsBase string
@@ -80,6 +83,9 @@ func (c *GroupsClient) Check(ctx context.Context) error {
 
 // List groups under a provided prefix, using the REST service
 func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (GroupList, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "ListGroupsByPrefix")
+	defer span.End()
+
 	var gs GroupList
 
 	uri, err := c.uriPath(ctx, fmt.Sprintf("search=%s", prefix), "groups")
@@ -93,6 +99,9 @@ func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (G
 
 // Get the basic group information for a group from the REST service, given a name
 func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupByName")
+	defer span.End()
+
 	var g Group
 
 	uri, err := c.uriPath(ctx, "", "groups", groupName)
@@ -106,6 +115,9 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 
 // Get the basic group information for a group from the REST service, given an ID
 func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupByID")
+	defer span.End()
+
 	var g Group
 
 	uri, err := c.uriPath(ctx, "", "groups", "id", groupID)
@@ -119,6 +131,9 @@ func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group,
 
 // List members of a group using the REST service, given a name
 func (c *GroupsClient) GetGroupMembers(ctx context.Context, groupName string) (GroupMembers, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupMembers")
+	defer span.End()
+
 	var gm GroupMembers
 	uri, err := c.uriPath(ctx, "", "groups", groupName, "members")
 	if err != nil {

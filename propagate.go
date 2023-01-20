@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/group-propagator/client/datainfo"
@@ -37,6 +38,9 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 }
 
 func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) error {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "PropagateGroupByID")
+	defer span.End()
+
 	irodsName := fmt.Sprintf("%s%s", p.groupPrefix, groupID)
 
 	g, err := p.groupsClient.GetGroupByID(ctx, groupID)

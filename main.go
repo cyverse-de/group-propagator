@@ -25,7 +25,7 @@ var log = logging.Log.WithFields(logrus.Fields{"package": "main"})
 
 const serviceName = "group-propagator"
 
-//const otelName = "github.com/cyverse-de/group-propagator"
+const otelName = "github.com/cyverse-de/group-propagator"
 
 func getQueueName(prefix string) string {
 	if len(prefix) > 0 {
@@ -111,64 +111,7 @@ func main() {
 		log.Info("Pinged data-info successfully")
 	}
 
-	/*
-		gn := "iplant:de:qa:users:de-users"
-		g, err := gc.GetGroupByName(context.Background(), gn)
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to get group"))
-		}
-		log.Infof("de-users group: %+v", g)
-
-		gs, err := gc.ListGroupsByPrefix(context.Background(), "iplant:de:qa:teams:qa-test1:")
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to get groups"))
-		}
-		log.Infof("qa-test1 teams: %+v", gs)
-
-		gn2 := "iplant:de:qa:teams:qa-test1:privateTeam"
-		gm, err := gc.GetGroupMembers(context.Background(), gn2)
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to get group members"))
-		}
-		log.Infof("team members: %+v", gm)
-
-		gcr, err := dc.CreateGroup(context.Background(), "@gctest", []string{"mian"})
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to create group"))
-		}
-		log.Infof("created group: %+v", gcr)
-
-		groupmem, err := dc.ListGroupMembers(context.Background(), "@gctest")
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to get group members"))
-		}
-		log.Infof("group members: %+v", groupmem)
-
-		gup, err := dc.UpdateGroupMembers(context.Background(), "@gctest", []string{"mian", "tedgin"})
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to update group"))
-		}
-		log.Infof("created group: %+v", gup)
-
-		err = dc.DeleteGroup(context.Background(), "@gctest")
-		if restutils.GetStatusCode(err) == 404 {
-			log.Info("Got 404")
-		} else if err != nil {
-			log.Fatal(errors.Wrap(err, "Unable to delete group"))
-		}
-	*/
+	propagator := NewPropagator(gc, "@grouper-", dc)
 
 	queueName := getQueueName(cfg.GetString("amqp.queue_prefix"))
 	listenClient.AddConsumerMulti(
@@ -183,11 +126,19 @@ func main() {
 				// crawl grouper, send incremental messages for each group
 				// also crawl irods for deleted groups
 			} else if strings.HasPrefix(del.RoutingKey, "index.group.") {
+				groupID := del.RoutingKey[len("index.group."):]
+				err = propagator.PropagateGroupById(context.Background(), groupID)
 				// update/propagate a single group into irods
 			}
-			err = del.Ack(false)
 			if err != nil {
-				log.Error(errors.Wrap(err, fmt.Sprintf("Error acknowledging message: %s", del.RoutingKey)))
+				log.Error(errors.Wrap(err, "Error handling message"))
+				err = del.Reject(!del.Redelivered)
+			} else {
+				err = del.Ack(false)
+			}
+
+			if err != nil {
+				log.Error(errors.Wrap(err, fmt.Sprintf("Error ack/rejecting message: %s", del.RoutingKey)))
 			}
 		},
 		1)
