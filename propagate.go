@@ -37,10 +37,20 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 }
 
 func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) error {
+	irodsName := fmt.Sprintf("%s%s", p.groupPrefix, groupID)
+
 	g, err := p.groupsClient.GetGroupByID(ctx, groupID)
-	if err != nil {
+	if restutils.GetStatusCode(err) == 404 {
+		err = p.dataInfoClient.DeleteGroup(ctx, irodsName)
+		if err != nil {
+			err = errors.Wrap(err, "Error deleting group")
+		}
+		return err
+	} else if err != nil {
 		return errors.Wrap(err, "Failed fetching Grouper group by ID")
 	}
+
+	irodsName = fmt.Sprintf("%s%s", p.groupPrefix, g.ID)
 
 	members, err := p.groupsClient.GetGroupMembers(ctx, g.Name)
 	if err != nil {
@@ -51,8 +61,6 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 	for _, member := range members.Members {
 		irodsMembers = append(irodsMembers, member.ID)
 	}
-
-	irodsName := fmt.Sprintf("%s%s", p.groupPrefix, g.ID)
 
 	irodsGroupExists := true
 
