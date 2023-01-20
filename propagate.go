@@ -18,13 +18,13 @@ import (
 // * Create or update group with proper membership list via data-info, potentially validating users/etc.
 
 type Propagator struct {
-	groupsClient groups.GroupsClient
+	groupsClient *groups.GroupsClient
 	groupPrefix  string
 
-	dataInfoClient datainfo.DataInfoClient
+	dataInfoClient *datainfo.DataInfoClient
 }
 
-func NewPropagator(groupsClient groups.GroupsClient, groupPrefix string, dataInfoClient datainfo.DataInfoClient) *Propagator {
+func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataInfoClient *datainfo.DataInfoClient) *Propagator {
 	if groupPrefix == "" {
 		groupPrefix = "@grouper-"
 	}

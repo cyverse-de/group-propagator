@@ -9,3 +9,7 @@ type Group struct {
 	Name    string   `json:"name,omitempty"`
 	Members []string `json:"members"`
 }
+
+type ServiceError struct {
+	ErrorCode string `json:"error_code"`
+}
