@@ -5,14 +5,15 @@ go 1.18
 require (
 	github.com/cyverse-de/configurate v0.0.0-20220113221928-13d34aae3f0f
 	github.com/cyverse-de/go-mod/logging v0.0.2
-	github.com/cyverse-de/go-mod/otelutils v0.0.3
+	github.com/cyverse-de/go-mod/otelutils v0.0.2
 	github.com/cyverse-de/go-mod/restutils v0.0.1
 	github.com/cyverse-de/messaging/v9 v9.1.5
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.14.0
 	github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.31.0
+	go.opentelemetry.io/otel v1.6.1
 )
 
 require (
@@ -32,12 +33,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
-	go.opentelemetry.io/otel v1.11.2 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.6.1 // indirect
-	go.opentelemetry.io/otel/metric v0.34.0 // indirect
+	go.opentelemetry.io/otel/metric v0.28.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.6.1 // indirect
-	go.opentelemetry.io/otel/trace v1.11.2 // indirect
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+	go.opentelemetry.io/otel/trace v1.6.1 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
