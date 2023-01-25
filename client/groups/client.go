@@ -95,6 +95,7 @@ func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix, folder st
 	} else {
 		uri, err = c.uriPath(ctx, fmt.Sprintf("search=%s", prefix), "groups")
 	}
+	log.Debugf("ListGroupsByPrefix uri: %s", uri)
 
 	if err != nil {
 		return gs, err

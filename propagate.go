@@ -86,6 +86,9 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 	irodsName = fmt.Sprintf("%s%s", p.groupPrefix, g.ID)
 
 	irodsMembers, err := p.getGroupMembers(ctx, g.Name)
+	if err != nil {
+		return errors.Wrap(err, "Failed getting group members")
+	}
 
 	irodsGroupExists := true
 
