@@ -37,6 +37,35 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 	}
 }
 
+func (p *Propagator) getGroupMembers(ctx context.Context, groupName string) ([]string, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupMembers")
+	defer span.End()
+
+	var m []string
+
+	members, err := p.groupsClient.GetGroupMembers(ctx, groupName)
+	if err != nil {
+		return m, errors.Wrapf(err, "Failed fetching Grouper group members for %s", groupName)
+	}
+
+	for _, member := range members.Members {
+		if member.SourceID == "ldap" {
+			m = append(m, member.ID)
+		} else if member.SourceID == "g:gsa" {
+			// this is a group that is a member of a group
+			submem, err := p.getGroupMembers(ctx, member.Name)
+			if err != nil {
+				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s", member.Name)
+			}
+			m = append(m, submem...)
+		} else {
+			log.Errorf("Could not add group member %+v", member)
+		}
+	}
+
+	return m, nil
+}
+
 func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) error {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "PropagateGroupByID")
 	defer span.End()
@@ -56,19 +85,7 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 
 	irodsName = fmt.Sprintf("%s%s", p.groupPrefix, g.ID)
 
-	members, err := p.groupsClient.GetGroupMembers(ctx, g.Name)
-	if err != nil {
-		return errors.Wrap(err, "Failed fetching Grouper group members")
-	}
-
-	var irodsMembers []string
-	for _, member := range members.Members {
-		if member.SourceID == "ldap" {
-			irodsMembers = append(irodsMembers, member.ID)
-		} else {
-			log.Errorf("Could not add group member %+v", member)
-		}
-	}
+	irodsMembers, err := p.getGroupMembers(ctx, g.Name)
 
 	irodsGroupExists := true
 
