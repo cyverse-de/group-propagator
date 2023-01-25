@@ -82,13 +82,20 @@ func (c *GroupsClient) Check(ctx context.Context) error {
 }
 
 // List groups under a provided prefix, using the REST service
-func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix string) (GroupList, error) {
+func (c *GroupsClient) ListGroupsByPrefix(ctx context.Context, prefix, folder string) (GroupList, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "ListGroupsByPrefix")
 	defer span.End()
 
 	var gs GroupList
+	var uri string
+	var err error
 
-	uri, err := c.uriPath(ctx, fmt.Sprintf("search=%s", prefix), "groups")
+	if folder != "" {
+		uri, err = c.uriPath(ctx, fmt.Sprintf("search=%s&folder=%s", prefix, folder), "groups")
+	} else {
+		uri, err = c.uriPath(ctx, fmt.Sprintf("search=%s", prefix), "groups")
+	}
+
 	if err != nil {
 		return gs, err
 	}

@@ -8,6 +8,7 @@ type Subject struct {
 	Email       string `json:"email"`
 	Institution string `json:"institution"`
 	Description string `json:"description"`
+	SourceID    string `json:"source_id"`
 
 	AttributeValues []string `json:"attribute_values"`
 }

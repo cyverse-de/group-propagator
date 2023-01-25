@@ -112,6 +112,7 @@ func main() {
 	}
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
+	crawler := NewCrawler(gc, cfg.GetString("iplant_groups.folder_name_prefix"), cfg.GetString("iplant_groups.public_group"), publishClient)
 
 	queueName := getQueueName(cfg.GetString("amqp.queue_prefix"))
 	listenClient.AddConsumerMulti(
@@ -123,8 +124,7 @@ func main() {
 			var err error
 			log.Tracef("Got message: %s", del.RoutingKey)
 			if del.RoutingKey == "index.all" || del.RoutingKey == "index.groups" {
-				// crawl grouper, send incremental messages for each group
-				// also crawl irods for deleted groups
+				err = crawler.CrawlGrouperGroups(ctx)
 			} else if strings.HasPrefix(del.RoutingKey, "index.group.") {
 				groupID := del.RoutingKey[len("index.group."):]
 				err = propagator.PropagateGroupById(ctx, groupID)
