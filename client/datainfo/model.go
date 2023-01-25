@@ -12,4 +12,9 @@ type Group struct {
 
 type ServiceError struct {
 	ErrorCode string `json:"error_code"`
+
+	Reason any
+	User   string
+	Users  []string
+	Group  string
 }

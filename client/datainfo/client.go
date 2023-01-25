@@ -67,11 +67,12 @@ func (d *DataInfoClient) reqJSON(ctx context.Context, method, uri string, body i
 		if err != nil {
 			log.Error(errors.Wrap(err, "Failed decoding error response"))
 		}
+		log.Debugf("Service Error: %+v", e)
 		// This is a little hacky but data-info returns a 500, apparently
 		if e.ErrorCode == "ERR_DOES_NOT_EXIST" {
 			sc = 404
 		}
-		return restutils.NewHTTPError(sc, fmt.Sprintf("GET %s returned %d", uri, sc))
+		return restutils.NewHTTPError(sc, fmt.Sprintf("%s %s returned %d", method, uri, sc))
 	}
 
 	if target != nil {

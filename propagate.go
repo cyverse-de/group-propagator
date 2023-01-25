@@ -63,7 +63,11 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 
 	var irodsMembers []string
 	for _, member := range members.Members {
-		irodsMembers = append(irodsMembers, member.ID)
+		if member.SourceID == "ldap" {
+			irodsMembers = append(irodsMembers, member.ID)
+		} else {
+			log.Errorf("Could not add group member %+v", member)
+		}
 	}
 
 	irodsGroupExists := true
@@ -85,7 +89,7 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 	}
 
 	if err != nil {
-		return errors.Wrapf(err, "Failed creating or updating group with %d members", len(irodsMembers))
+		return errors.Wrapf(err, "Failed creating or updating group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(irodsMembers))
 	}
 
 	log.Infof("Updated group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(finalGroup.Members))
