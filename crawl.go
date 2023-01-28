@@ -30,6 +30,9 @@ func NewCrawler(groupsClient *groups.GroupsClient, groupBaseFolder, publicGroup 
 	}
 }
 
+// Request all groups within the configured base folder/prefix
+// This handles new groups and existing groups with updated memberships
+// It does not send messages for groups that no longer exist in Grouper
 func (c *Crawler) CrawlGrouperGroups(ctx context.Context) error {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "CrawlGrouperGroups")
 	defer span.End()
