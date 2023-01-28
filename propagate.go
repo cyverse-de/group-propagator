@@ -81,9 +81,9 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 		return err
 	} else if err != nil {
 		return errors.Wrap(err, "Failed fetching Grouper group by ID")
+	} else if groupID != g.ID {
+		return errors.New(fmt.Sprintf("Fetched Grouper group has an ID of %s, but was fetched using the ID %s", g.ID, groupID))
 	}
-
-	irodsName = fmt.Sprintf("%s%s", p.groupPrefix, g.ID)
 
 	irodsMembers, err := p.getGroupMembers(ctx, g.Name)
 	if err != nil {
