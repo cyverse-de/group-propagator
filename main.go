@@ -13,6 +13,7 @@ import (
 
 	"github.com/cyverse-de/group-propagator/client/datainfo"
 	"github.com/cyverse-de/group-propagator/client/groups"
+	"github.com/cyverse-de/group-propagator/config"
 	"github.com/cyverse-de/group-propagator/logging"
 
 	"github.com/pkg/errors"
@@ -26,6 +27,27 @@ var log = logging.Log.WithFields(logrus.Fields{"package": "main"})
 const serviceName = "group-propagator"
 
 const otelName = "github.com/cyverse-de/group-propagator"
+
+const defaultConfig = `
+amqp:
+  uri: amqp://guest:guest@rabbit:5672/
+  queue_prefix: ""
+  exchange:
+    name: de
+    type: topic
+
+iplant_groups:
+  base: "http://iplant-groups"
+  user: GrouperSystem
+  folder_name_prefix: "iplant:de:notprod"
+  public_group: 7777777777777777777777777777777777
+
+data_info:
+  base: "http://data-info"
+
+irods:
+  user: "de-irods"
+`
 
 func getQueueName(prefix string) string {
 	if len(prefix) > 0 {
@@ -68,26 +90,30 @@ func main() {
 		log.Fatal("--config must not be the empty string")
 	}
 
-	if cfg, err = configurate.Init(*cfgPath); err != nil {
+	if cfg, err = configurate.InitDefaults(*cfgPath, defaultConfig); err != nil {
 		log.Fatal(err.Error())
 	}
 
 	// package up config nicely
+	configuration, err := config.NewFromViper(cfg)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Couldn't validate configuration"))
+	}
 
 	// Set up AMQP
-	listenClient, err := messaging.NewClient(cfg.GetString("amqp.uri"), true)
+	listenClient, err := messaging.NewClient(configuration.AMQPURI, true)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Unable to create the messaging listen client"))
 	}
 	defer listenClient.Close()
 
-	publishClient, err := messaging.NewClient(cfg.GetString("amqp.uri"), true)
+	publishClient, err := messaging.NewClient(configuration.AMQPURI, true)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Unable to create the messaging publish client"))
 	}
 	defer publishClient.Close()
 
-	err = publishClient.SetupPublishing(cfg.GetString("amqp.exchange.name"))
+	err = publishClient.SetupPublishing(configuration.AMQPExchangeName)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Unable to set up message publishing"))
 	}
@@ -95,7 +121,7 @@ func main() {
 	go listenClient.Listen()
 
 	// Create clients
-	gc := groups.NewGroupsClient(cfg.GetString("iplant_groups.base"), cfg.GetString("iplant_groups.user"))
+	gc := groups.NewGroupsClient(configuration.IplantGroupsBase, configuration.IplantGroupsUser)
 	err = gc.Check(context.Background())
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Couldn't ping iplant-groups"))
@@ -103,7 +129,7 @@ func main() {
 		log.Info("Pinged iplant-groups successfully")
 	}
 
-	dc := datainfo.NewDataInfoClient(cfg.GetString("data_info.base"), cfg.GetString("irods.user"))
+	dc := datainfo.NewDataInfoClient(configuration.DataInfoBase, configuration.IRODSUser)
 	err = dc.Check(context.Background())
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Couldn't ping data-info"))
@@ -112,12 +138,12 @@ func main() {
 	}
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
-	crawler := NewCrawler(gc, cfg.GetString("iplant_groups.folder_name_prefix"), cfg.GetString("iplant_groups.public_group"), publishClient)
+	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, configuration.IplantGroupsPublicGroup, publishClient)
 
-	queueName := getQueueName(cfg.GetString("amqp.queue_prefix"))
+	queueName := getQueueName(configuration.AMQPQueuePrefix)
 	listenClient.AddConsumerMulti(
-		cfg.GetString("amqp.exchange.name"),
-		cfg.GetString("amqp.exchange.type"),
+		configuration.AMQPExchangeName,
+		configuration.AMQPExchangeType,
 		queueName,
 		[]string{"index.all", "index.groups", "index.group.#"},
 		func(ctx context.Context, del amqp.Delivery) {
