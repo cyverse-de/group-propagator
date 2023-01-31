@@ -1,0 +1,23 @@
+amqp:
+  uri: amqp://ipc:SKYPE%20%21%20%26@pastor.cyverse.org:5672/%2fqa%2fde
+  exchange:
+    name: de
+    type: topic
+
+iplant_groups:
+  base: "http://localhost:60000"
+  user: de_grouper
+  folder_name_prefix: "iplant:de:qa"
+  public_group: 6f92b6ddc44e47aebdcddf66281b1383
+
+data_info:
+  base: "http://localhost:60001"
+
+irods:
+  user: "de-irods"
+  pass: "SlamDunk99"
+  host: "data.cyverse.rocks"
+  port: "1247"
+  base: "/cyverse/home"
+  resc: ""
+  zone: "cyverse"
