@@ -110,7 +110,7 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 	finalGroup, err := p.dataInfoClient.UpdateGroupMembers(ctx, irodsName, irodsMembers)
 
 	if err != nil {
-		return errors.Wrapf(err, "Failed creating or updating group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(irodsMembers))
+		return errors.Wrapf(err, "Failed updating group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(irodsMembers))
 	}
 
 	log.Infof("Updated group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(finalGroup.Members))
