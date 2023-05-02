@@ -100,13 +100,14 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 		return errors.Wrap(err, "Failed fetching existing iRODS group members")
 	}
 
-	var finalGroup datainfo.Group
-
-	if irodsGroupExists {
-		finalGroup, err = p.dataInfoClient.UpdateGroupMembers(ctx, irodsName, irodsMembers)
-	} else {
-		finalGroup, err = p.dataInfoClient.CreateGroup(ctx, irodsName, irodsMembers)
+	if !irodsGroupExists {
+		initialGroup, err := p.dataInfoClient.CreateGroup(ctx, irodsName, []string{})
+		if err != nil {
+			return errors.Wrapf(err, "Failed creating group %s (%s) -> %s", g.Name, groupID, initialGroup.Name)
+		}
 	}
+
+	finalGroup, err := p.dataInfoClient.UpdateGroupMembers(ctx, irodsName, irodsMembers)
 
 	if err != nil {
 		return errors.Wrapf(err, "Failed creating or updating group %s (%s) -> %s with %d members", g.Name, groupID, finalGroup.Name, len(irodsMembers))
