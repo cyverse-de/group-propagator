@@ -31,3 +31,7 @@ type GroupList struct {
 type GroupMembers struct {
 	Members []Subject `json:"members"`
 }
+
+type group struct {
+	ID *string `json:"id"`
+}

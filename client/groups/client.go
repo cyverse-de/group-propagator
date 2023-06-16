@@ -23,12 +23,49 @@ const otelName = "github.com/cyverse-de/group-propagator/client/groups"
 type GroupsClient struct {
 	GroupsBase string
 	GroupsUser string
+	GroupsName string
+	GroupsID   string
 }
 
 var httpClient = http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
-func NewGroupsClient(base, user string) *GroupsClient {
-	return &GroupsClient{base, user}
+func NewGroupsClient(base string, user string, name string) *GroupsClient {
+	// groupID, err := getGroupID(ctx, base, group)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return &GroupsClient{GroupsBase: base, GroupsUser: user, GroupsName: name}
+}
+
+func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
+	// Setting up Open Telemetry tracer
+	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupID")
+	defer span.End()
+
+	fullURL, err := url.Parse(c.GroupsBase)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse iplant-groups base URL")
+	}
+	fullURL = fullURL.JoinPath("groups", c.GroupsName)
+
+	q := fullURL.Query()
+	q.Set("user", c.GroupsUser)
+
+	fullURL.RawQuery = q.Encode()
+
+	var group group
+	c.getJSON(ctx, fullURL.String(), &group)
+
+	return &group, nil
+}
+
+func (c *GroupsClient) SetGroupsID(ctx context.Context) error {
+	groups, err := c.getGroupsID(ctx)
+	if err != nil {
+		return err
+	}
+	c.GroupsID = *groups.ID
+	return nil
 }
 
 func (c *GroupsClient) uriPath(ctx context.Context, rawQuery string, pathParts ...string) (string, error) {

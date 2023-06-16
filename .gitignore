@@ -2,3 +2,5 @@ group-propagator
 /group-propagator.yml
 
 *.swp
+
+launch.json
