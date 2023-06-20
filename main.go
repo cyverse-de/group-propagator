@@ -71,8 +71,7 @@ func spin() {
 
 func main() {
 	var (
-		//cfgPath  = flag.String("config", "/etc/iplant/de/group-propagator.yml", "The path to the config file")
-		cfgPath  = flag.String("config", "/Users/sboleyn/Documents/apps/k8s-resources/resources/configs/qa/group-propagator.yml", "The path to the config file")
+		cfgPath  = flag.String("config", "/etc/iplant/de/group-propagator.yml", "The path to the config file")
 		logLevel = flag.String("log-level", "info", "One of trace, debug, info, warn, error, fatal, or panic.")
 
 		err error
@@ -148,7 +147,6 @@ func main() {
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
 	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, gc.GroupsID, publishClient)
-	//crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, configuration.IplantGroupsPublicGroup, publishClient)
 
 	queueName := getQueueName(configuration.AMQPQueuePrefix)
 	listenClient.AddConsumerMulti(

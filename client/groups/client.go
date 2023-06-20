@@ -30,15 +30,10 @@ type GroupsClient struct {
 var httpClient = http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 func NewGroupsClient(base string, user string, name string) *GroupsClient {
-	// groupID, err := getGroupID(ctx, base, group)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	return &GroupsClient{GroupsBase: base, GroupsUser: user, GroupsName: name}
 }
 
 func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
-	// Setting up Open Telemetry tracer
 	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupID")
 	defer span.End()
 
