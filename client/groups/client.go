@@ -49,8 +49,10 @@ func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
 	fullURL.RawQuery = q.Encode()
 
 	var group group
-	c.getJSON(ctx, fullURL.String(), &group)
-
+	err = c.getJSON(ctx, fullURL.String(), &group)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get group ID")
+	}
 	return &group, nil
 }
 
