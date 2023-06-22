@@ -21,19 +21,19 @@ var log = logging.Log.WithFields(logrus.Fields{"package": "client.groups"})
 const otelName = "github.com/cyverse-de/group-propagator/client/groups"
 
 type GroupsClient struct {
-	GroupsBase string
-	GroupsUser string
-	GroupsName string
-	GroupsID   string
+	GroupsBase       string
+	GroupsUser       string
+	DEUsersGroupName string
+	GroupsID         string
 }
 
 var httpClient = http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 func NewGroupsClient(base string, user string, name string) *GroupsClient {
-	return &GroupsClient{GroupsBase: base, GroupsUser: user, GroupsName: name}
+	return &GroupsClient{GroupsBase: base, GroupsUser: user, DEUsersGroupName: name}
 }
 
-func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
+func (c *GroupsClient) getDEUsersGroupID(ctx context.Context) (*group, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupID")
 	defer span.End()
 
@@ -41,7 +41,7 @@ func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to parse iplant-groups base URL")
 	}
-	fullURL = fullURL.JoinPath("groups", c.GroupsName)
+	fullURL = fullURL.JoinPath("groups", c.DEUsersGroupName)
 
 	q := fullURL.Query()
 	q.Set("user", c.GroupsUser)
@@ -57,7 +57,7 @@ func (c *GroupsClient) getGroupsID(ctx context.Context) (*group, error) {
 }
 
 func (c *GroupsClient) SetGroupsID(ctx context.Context) error {
-	groups, err := c.getGroupsID(ctx)
+	groups, err := c.getDEUsersGroupID(ctx)
 	if err != nil {
 		return err
 	}
