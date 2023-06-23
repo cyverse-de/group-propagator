@@ -40,7 +40,7 @@ iplant_groups:
   base: "http://iplant-groups"
   user: GrouperSystem
   folder_name_prefix: "iplant:de:notprod"
-  public_group: 7777777777777777777777777777777777
+  public_group: "iplant:de:notprod"
 
 data_info:
   base: "http://data-info"
@@ -57,7 +57,7 @@ func getQueueName(prefix string) string {
 }
 
 // A spinner to keep the program running since client.Listen() needs to be in a goroutine.
-//nolint
+// nolint
 func spin() {
 	spinner := make(chan int)
 	for {
@@ -121,12 +121,20 @@ func main() {
 	go listenClient.Listen()
 
 	// Create clients
-	gc := groups.NewGroupsClient(configuration.IplantGroupsBase, configuration.IplantGroupsUser)
+	gc := groups.NewGroupsClient(configuration.IplantGroupsBase, configuration.IplantGroupsUser, configuration.IplantGroupsPublicGroup)
+
 	err = gc.Check(context.Background())
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "Couldn't ping iplant-groups"))
 	} else {
 		log.Info("Pinged iplant-groups successfully")
+	}
+
+	err = gc.SetGroupsID(context.Background())
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Couldn't get group information"))
+	} else {
+		log.Info("Group information retrieved successfully")
 	}
 
 	dc := datainfo.NewDataInfoClient(configuration.DataInfoBase, configuration.IRODSUser)
@@ -138,7 +146,7 @@ func main() {
 	}
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
-	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, configuration.IplantGroupsPublicGroup, publishClient)
+	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, gc.GroupsID, publishClient)
 
 	queueName := getQueueName(configuration.AMQPQueuePrefix)
 	listenClient.AddConsumerMulti(
