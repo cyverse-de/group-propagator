@@ -70,6 +70,12 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 	ctx, span := otel.Tracer(otelName).Start(ctx, "PropagateGroupByID")
 	defer span.End()
 
+	// Don't propagate the de-users group.
+	if groupID == p.groupsClient.GroupsID {
+		log.Infof("Skipping a propagation request for the de-users group: %s", groupID)
+		return nil
+	}
+
 	irodsName := fmt.Sprintf("%s%s", p.groupPrefix, groupID)
 
 	g, err := p.groupsClient.GetGroupByID(ctx, groupID)
