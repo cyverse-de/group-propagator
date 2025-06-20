@@ -146,7 +146,7 @@ func (c *GroupsClient) GetGroupByName(ctx context.Context, groupName string) (Gr
 
 	var g Group
 
-	uri, err := c.uriPath(ctx, "", "groups", groupName)
+	uri, err := c.uriPath(ctx, "", "groups", url.PathEscape(groupName))
 	if err != nil {
 		return g, err
 	}
@@ -177,7 +177,7 @@ func (c *GroupsClient) GetGroupMembers(ctx context.Context, groupName string) (G
 	defer span.End()
 
 	var gm GroupMembers
-	uri, err := c.uriPath(ctx, "", "groups", groupName, "members")
+	uri, err := c.uriPath(ctx, "", "groups", url.PathEscape(groupName), "members")
 	if err != nil {
 		return gm, err
 	}
