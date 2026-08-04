@@ -37,25 +37,26 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 	}
 }
 
-func (p *Propagator) getGroupMembers(ctx context.Context, groupName string) ([]string, error) {
+func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]string, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupMembers")
 	defer span.End()
 
 	var m []string
 
-	members, err := p.groupsClient.GetGroupMembers(ctx, groupName)
+	members, err := p.groupsClient.GetGroupMembersByID(ctx, groupID)
 	if err != nil {
-		return m, errors.Wrapf(err, "Failed fetching Grouper group members for %s", groupName)
+		return m, errors.Wrapf(err, "Failed fetching group members for %s", groupID)
 	}
 
 	for _, member := range members.Members {
 		if member.SourceID == "ldap" {
 			m = append(m, member.ID)
 		} else if member.SourceID == "g:gsa" {
-			// this is a group that is a member of a group
-			submem, err := p.getGroupMembers(ctx, member.Name)
+			// A nested group. Its subject ID is the nested group's own group ID,
+			// so the recursion stays keyed by ID all the way down.
+			submem, err := p.getGroupMembers(ctx, member.ID)
 			if err != nil {
-				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s", member.Name)
+				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s (%s)", member.Name, member.ID)
 			}
 			m = append(m, submem...)
 		} else {
@@ -91,7 +92,7 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 		return errors.New(fmt.Sprintf("Fetched Grouper group has an ID of %s, but was fetched using the ID %s", g.ID, groupID))
 	}
 
-	irodsMembers, err := p.getGroupMembers(ctx, g.Name)
+	irodsMembers, err := p.getGroupMembers(ctx, groupID)
 	if err != nil {
 		return errors.Wrap(err, "Failed getting group members")
 	}

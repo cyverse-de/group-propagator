@@ -171,13 +171,15 @@ func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group,
 	return g, err
 }
 
-// List members of a group using the REST service, given a name
-func (c *GroupsClient) GetGroupMembers(ctx context.Context, groupName string) (GroupMembers, error) {
-	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupMembers")
+// List members of a group using the REST service, given an ID. Membership is
+// keyed by ID rather than name because a nested group's member entry carries
+// its own short name, which is not a lookup key on either backend.
+func (c *GroupsClient) GetGroupMembersByID(ctx context.Context, groupID string) (GroupMembers, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupMembersByID")
 	defer span.End()
 
 	var gm GroupMembers
-	uri, err := c.uriPath(ctx, "", "groups", url.PathEscape(groupName), "members")
+	uri, err := c.uriPath(ctx, "", "groups", "id", url.PathEscape(groupID), "members")
 	if err != nil {
 		return gm, err
 	}
