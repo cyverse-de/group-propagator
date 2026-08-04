@@ -14,15 +14,13 @@ type Subject struct {
 }
 
 type Group struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	DisplayName      string `json:"display_name"`
-	Type             string `json:"type"`
-	Description      string `json:"description"`
-	Extension        string `json:"extension"`
-	DisplayExtension string `json:"display_extension"`
-	IDIndex          string `json:"id_index"`
-} // should we add the 'detail' here?
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	GroupType   string `json:"group_type"`
+	Owner       string `json:"owner"`
+	Description string `json:"description"`
+}
 
 type GroupList struct {
 	Groups []Group `json:"groups"`
@@ -32,6 +30,12 @@ type GroupMembers struct {
 	Members []Subject `json:"members"`
 }
 
-type group struct {
-	ID *string `json:"id"`
+// Status is the groups service's GET / response. Keycloak is deliberately not
+// treated as fatal: without it names and email addresses degrade, but group
+// membership -- the only thing this service reads -- still resolves.
+type Status struct {
+	Service  string `json:"service"`
+	Version  string `json:"version"`
+	Database bool   `json:"database"`
+	Keycloak bool   `json:"keycloak"`
 }

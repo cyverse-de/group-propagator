@@ -19,10 +19,9 @@ type memberFixture struct {
 	sourceID string
 }
 
-// newGroupsServer serves member listings keyed by group ID only, which is the
-// one lookup both iplant-groups and the groups service agree on. A request for
-// any other path 404s, so a recursion that follows names rather than IDs fails
-// the test rather than quietly returning short results.
+// newGroupsServer serves member listings keyed by group ID only. A request for
+// any other path 404s, so a recursion that follows a nested group's name rather
+// than its ID fails the test rather than quietly returning short membership.
 func newGroupsServer(t *testing.T, membership map[string][]memberFixture) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -32,7 +31,7 @@ func newGroupsServer(t *testing.T, membership map[string][]memberFixture) *httpt
 			subjects = append(subjects, groups.Subject{ID: m.id, Name: m.name, SourceID: m.sourceID})
 		}
 		body := groups.GroupMembers{Members: subjects}
-		mux.HandleFunc(fmt.Sprintf("/groups/id/%s/members", groupID), func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc(fmt.Sprintf("/groups/%s/members", groupID), func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			if err := json.NewEncoder(w).Encode(body); err != nil {
 				t.Errorf("encoding member listing: %v", err)

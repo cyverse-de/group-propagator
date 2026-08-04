@@ -12,38 +12,37 @@ import (
 )
 
 type Crawler struct {
-	groupsClient    *groups.GroupsClient
-	groupBaseFolder string
-	publicGroup     string
+	groupsClient *groups.GroupsClient
+	publicGroup  string
 
 	// maybe a data-info client too for irods crawling?
 
 	publishClient *messaging.Client
 }
 
-func NewCrawler(groupsClient *groups.GroupsClient, groupBaseFolder, publicGroup string, publishClient *messaging.Client) *Crawler {
+func NewCrawler(groupsClient *groups.GroupsClient, publicGroup string, publishClient *messaging.Client) *Crawler {
 	return &Crawler{
-		groupsClient:    groupsClient,
-		groupBaseFolder: groupBaseFolder,
-		publicGroup:     publicGroup,
-		publishClient:   publishClient,
+		groupsClient:  groupsClient,
+		publicGroup:   publicGroup,
+		publishClient: publishClient,
 	}
 }
 
-// Request all groups within the configured base folder/prefix
-// This handles new groups and existing groups with updated memberships
-// It does not send messages for groups that no longer exist in Grouper
-func (c *Crawler) CrawlGrouperGroups(ctx context.Context) error {
-	ctx, span := otel.Tracer(otelName).Start(ctx, "CrawlGrouperGroups")
+// Request every group the groups service knows about. The service holds one
+// deployment's group data, so there is no folder or prefix left to scope by.
+// This handles new groups and existing groups with updated memberships;
+// it does not send messages for groups that no longer exist.
+func (c *Crawler) CrawlGroups(ctx context.Context) error {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "CrawlGroups")
 	defer span.End()
 
-	gs, err := c.groupsClient.ListGroupsByPrefix(ctx, c.groupBaseFolder, c.groupBaseFolder) // same thing passed twice: as prefix for group search and for folder to search within
+	gs, err := c.groupsClient.ListAllGroups(ctx)
 	if err != nil {
-		return errors.Wrap(err, "Failed listing groups by prefix")
+		return errors.Wrap(err, "Failed listing groups")
 	}
 
 	var overallError error
-	for _, group := range gs.Groups {
+	for _, group := range gs {
 		if group.ID != c.publicGroup {
 			err = c.publishClient.PublishContext(ctx, fmt.Sprintf("index.group.%s", group.ID), []byte{})
 		}

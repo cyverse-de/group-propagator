@@ -8,10 +8,9 @@ import (
 )
 
 type Config struct {
-	IplantGroupsBase             string
-	IplantGroupsUser             string
-	IplantGroupsFolderNamePrefix string
-	IplantGroupsPublicGroup      string
+	GroupsBase       string
+	GroupsUser       string
+	DEUsersGroupName string
 
 	DataInfoBase string
 	IRODSUser    string
@@ -24,10 +23,9 @@ type Config struct {
 
 func NewFromViper(cfg *viper.Viper) (*Config, error) {
 	c := &Config{
-		IplantGroupsBase:             cfg.GetString("iplant_groups.base"),
-		IplantGroupsUser:             cfg.GetString("iplant_groups.user"),
-		IplantGroupsFolderNamePrefix: cfg.GetString("iplant_groups.folder_name_prefix"),
-		IplantGroupsPublicGroup:      cfg.GetString("iplant_groups.public_group"),
+		GroupsBase:       cfg.GetString("groups.base"),
+		GroupsUser:       cfg.GetString("groups.user"),
+		DEUsersGroupName: cfg.GetString("groups.de_users_group"),
 
 		DataInfoBase: cfg.GetString("data_info.base"),
 		IRODSUser:    cfg.GetString("irods.user"),
@@ -48,17 +46,14 @@ func NewFromViper(cfg *viper.Viper) (*Config, error) {
 func (c *Config) Validate() error {
 	var errorkeys []string
 
-	if c.IplantGroupsBase == "" {
-		errorkeys = append(errorkeys, "iplant_groups.base")
+	if c.GroupsBase == "" {
+		errorkeys = append(errorkeys, "groups.base")
 	}
-	if c.IplantGroupsUser == "" {
-		errorkeys = append(errorkeys, "iplant_groups.user")
+	if c.GroupsUser == "" {
+		errorkeys = append(errorkeys, "groups.user")
 	}
-	if c.IplantGroupsFolderNamePrefix == "" {
-		errorkeys = append(errorkeys, "iplant_groups.folder_name_prefix")
-	}
-	if c.IplantGroupsPublicGroup == "" {
-		errorkeys = append(errorkeys, "iplant_groups.public_group")
+	if c.DEUsersGroupName == "" {
+		errorkeys = append(errorkeys, "groups.de_users_group")
 	}
 
 	if c.DataInfoBase == "" {

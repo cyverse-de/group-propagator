@@ -121,13 +121,13 @@ func main() {
 	go listenClient.Listen()
 
 	// Create clients
-	gc := groups.NewGroupsClient(configuration.IplantGroupsBase, configuration.IplantGroupsUser, configuration.IplantGroupsPublicGroup)
+	gc := groups.NewGroupsClient(configuration.GroupsBase, configuration.GroupsUser, configuration.DEUsersGroupName)
 
 	err = gc.Check(context.Background())
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "Couldn't ping iplant-groups"))
+		log.Fatal(errors.Wrap(err, "Couldn't ping the groups service"))
 	} else {
-		log.Info("Pinged iplant-groups successfully")
+		log.Info("Pinged the groups service successfully")
 	}
 
 	err = gc.SetGroupsID(context.Background())
@@ -146,7 +146,7 @@ func main() {
 	}
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
-	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, gc.GroupsID, publishClient)
+	crawler := NewCrawler(gc, gc.GroupsID, publishClient)
 
 	queueName := getQueueName(configuration.AMQPQueuePrefix)
 	listenClient.AddConsumerMulti(
@@ -158,7 +158,7 @@ func main() {
 			var err error
 			log.Tracef("Got message: %s", del.RoutingKey)
 			if del.RoutingKey == "index.all" || del.RoutingKey == "index.groups" {
-				err = crawler.CrawlGrouperGroups(ctx)
+				err = crawler.CrawlGroups(ctx)
 			} else if strings.HasPrefix(del.RoutingKey, "index.group.") {
 				groupID := del.RoutingKey[len("index.group."):]
 				err = propagator.PropagateGroupById(ctx, groupID)
