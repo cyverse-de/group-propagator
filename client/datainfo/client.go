@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/group-propagator/logging"
@@ -27,7 +28,12 @@ type DataInfoClient struct {
 	DataInfoUser string
 }
 
-var httpClient = http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+// The timeout keeps an unresponsive data-info from hanging the single AMQP
+// consumer goroutine indefinitely.
+var httpClient = http.Client{
+	Transport: otelhttp.NewTransport(http.DefaultTransport),
+	Timeout:   30 * time.Second,
+}
 
 func NewDataInfoClient(base, user string) *DataInfoClient {
 	return &DataInfoClient{base, user}
