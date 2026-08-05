@@ -36,11 +36,10 @@ amqp:
     name: de
     type: topic
 
-iplant_groups:
-  base: "http://iplant-groups"
-  user: GrouperSystem
-  folder_name_prefix: "iplant:de:notprod"
-  public_group: "iplant:de:notprod"
+groups:
+  base: "http://groups"
+  user: de_grouper
+  de_users_group: de-users
 
 data_info:
   base: "http://data-info"

@@ -48,6 +48,17 @@ func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]str
 		return m, errors.Wrapf(err, "Failed fetching group members for %s", groupID)
 	}
 
+	// A withheld list is empty but the group is not. Propagating it would PUT
+	// an empty member list to data-info, which replaces rather than merges, and
+	// silently strip the iRODS group -- logged as an unremarkable "0 members".
+	// This means the configured groups user is not an administrative account of
+	// the groups service; it must be, or it cannot see membership at all.
+	if members.Redacted {
+		return m, errors.Errorf(
+			"groups service withheld the member list for %s; the configured groups.user is not "+
+				"an admin of the groups service, so propagating would erase the iRODS group", groupID)
+	}
+
 	for _, member := range members.Members {
 		if member.SourceID == "ldap" {
 			m = append(m, member.ID)

@@ -28,6 +28,12 @@ type GroupList struct {
 
 type GroupMembers struct {
 	Members []Subject `json:"members"`
+
+	// Redacted reports that the groups service withheld the member list
+	// because the group is public but its membership is not. The list is
+	// empty in that case but the group is not, so propagating it would strip
+	// every member from the iRODS group.
+	Redacted bool `json:"redacted"`
 }
 
 // Status is the groups service's GET / response. Keycloak is deliberately not
