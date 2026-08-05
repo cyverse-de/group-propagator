@@ -64,7 +64,7 @@ func (d *DataInfoClient) reqJSON(ctx context.Context, method, uri string, body i
 	if err != nil {
 		return errors.Wrap(err, "Failed requesting URL")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		var e ServiceError
