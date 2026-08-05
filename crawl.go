@@ -43,10 +43,10 @@ func (c *Crawler) CrawlGroups(ctx context.Context) error {
 
 	var overallError error
 	for _, group := range gs {
-		if group.ID != c.publicGroup {
-			err = c.publishClient.PublishContext(ctx, fmt.Sprintf("index.group.%s", group.ID), []byte{})
+		if group.ID == c.publicGroup {
+			continue
 		}
-		if err != nil {
+		if err := c.publishClient.PublishContext(ctx, fmt.Sprintf("index.group.%s", group.ID), []byte{}); err != nil {
 			log.Error(errors.Wrap(err, fmt.Sprintf("Error publishing message for group %s", group.ID)))
 			overallError = err
 		}
