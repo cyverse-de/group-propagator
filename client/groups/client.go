@@ -127,8 +127,12 @@ func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "ListAllGroups")
 	defer span.End()
 
+	// The offset advances by what each page actually held, and only an empty
+	// page ends the crawl. Keying either off the requested pageSize would
+	// silently truncate the listing if the service ever clamps responses
+	// below what we asked for.
 	var all []Group
-	for offset := 0; ; offset += pageSize {
+	for offset := 0; ; offset = len(all) {
 		uri, err := c.uriPath(ctx, fmt.Sprintf("limit=%d&offset=%d", pageSize, offset), "groups")
 		if err != nil {
 			return all, err
@@ -139,11 +143,10 @@ func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
 		if err := c.getJSON(ctx, uri, &page); err != nil {
 			return all, err
 		}
-
-		all = append(all, page.Groups...)
-		if len(page.Groups) < pageSize {
+		if len(page.Groups) == 0 {
 			return all, nil
 		}
+		all = append(all, page.Groups...)
 	}
 }
 
