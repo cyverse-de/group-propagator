@@ -144,6 +144,75 @@ func TestListAllGroupsHonorsServerCappedPages(t *testing.T) {
 	}
 }
 
+// The groups service answers a non-admin's listing with a 200 and an
+// access-filtered page -- there is no marker distinguishing it from a complete
+// one. A propagator running as such a user would crawl an empty-ish listing
+// forever and groups would silently stop propagating, so startup has to prove
+// admin standing by checking that de-users shows up in the same kind of
+// listing the crawl uses.
+func TestVerifyAdminListing(t *testing.T) {
+	tests := []struct {
+		name    string
+		groups  []Group
+		wantErr bool
+	}{
+		{
+			name: "de-users visible",
+			groups: []Group{
+				{ID: "abc123", Name: "de-users", GroupType: "system"},
+				{ID: "def456", Name: "grouper-all", GroupType: "system"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "listing access-filtered",
+			groups: []Group{
+				{ID: "def456", Name: "grouper-all", GroupType: "system"},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "listing empty",
+			groups:  []Group{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotQuery url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/groups" {
+					http.NotFound(w, r)
+					return
+				}
+				gotQuery = r.URL.Query()
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(GroupList{Groups: tt.groups}); err != nil {
+					t.Errorf("encoding listing: %v", err)
+				}
+			}))
+			defer srv.Close()
+
+			c := NewGroupsClient(srv.URL, "de_grouper", "de-users")
+			c.GroupsID = "abc123"
+
+			err := c.VerifyAdminListing(context.Background())
+			if tt.wantErr && err == nil {
+				t.Fatal("expected an error for a listing without de-users, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("VerifyAdminListing: %v", err)
+			}
+			// System groups are the smallest slice of the listing that must
+			// contain de-users, so the check filters to them.
+			if got := gotQuery.Get("group_type"); got != "system" {
+				t.Errorf("group_type is %q, want system", got)
+			}
+		})
+	}
+}
+
 func TestLookupDEUsersGroup(t *testing.T) {
 	var gotQuery string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

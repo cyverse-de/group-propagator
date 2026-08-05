@@ -150,6 +150,36 @@ func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
 	}
 }
 
+// VerifyAdminListing proves the configured user gets unfiltered group
+// listings by checking that the de-users group appears in a system-type
+// listing; SetGroupsID must have run first. The check exists because the
+// service answers a non-admin with a 200 and an access-filtered page that
+// carries no marker -- without it, groups would silently stop propagating.
+func (c *GroupsClient) VerifyAdminListing(ctx context.Context) error {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "VerifyAdminListing")
+	defer span.End()
+
+	uri, err := c.uriPath(ctx, fmt.Sprintf("group_type=system&limit=%d&offset=0", pageSize), "groups")
+	if err != nil {
+		return errors.Wrap(err, "Failed to build the system group listing URL")
+	}
+
+	var page GroupList
+	if err := c.getJSON(ctx, uri, &page); err != nil {
+		return errors.Wrap(err, "Failed listing system groups")
+	}
+	for _, g := range page.Groups {
+		if g.ID == c.GroupsID {
+			return nil
+		}
+	}
+	return errors.Errorf(
+		"the system group listing does not include %s (%s); this usually means the configured "+
+			"groups user %q is not in the groups service's admin-users list, so listings are "+
+			"access-filtered and propagation would silently miss groups",
+		c.DEUsersGroupName, c.GroupsID, c.GroupsUser)
+}
+
 // Get the basic group information for a group from the REST service, given an ID
 func (c *GroupsClient) GetGroupByID(ctx context.Context, groupID string) (Group, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupByID")

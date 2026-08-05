@@ -136,6 +136,15 @@ func main() {
 		log.Info("Group information retrieved successfully")
 	}
 
+	// A non-admin groups user gets access-filtered listings with no error
+	// anywhere, so prove admin standing now rather than propagate nothing.
+	err = gc.VerifyAdminListing(context.Background())
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Groups service admin check failed"))
+	} else {
+		log.Info("Verified that the groups user sees unfiltered group listings")
+	}
+
 	dc := datainfo.NewDataInfoClient(configuration.DataInfoBase, configuration.IRODSUser)
 	err = dc.Check(context.Background())
 	if err != nil {
