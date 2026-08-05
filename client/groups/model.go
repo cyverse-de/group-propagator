@@ -1,5 +1,7 @@
 package groups
 
+// Subject is one member of a group: an LDAP user or, when SourceID is
+// "g:gsa", a nested group whose ID is the nested group's own group ID.
 type Subject struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -13,6 +15,7 @@ type Subject struct {
 	AttributeValues []string `json:"attribute_values"`
 }
 
+// Group is the groups service's representation of a single group.
 type Group struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -22,10 +25,12 @@ type Group struct {
 	Description string `json:"description"`
 }
 
+// GroupList is one page of a group listing response.
 type GroupList struct {
 	Groups []Group `json:"groups"`
 }
 
+// GroupMembers is a group's member listing response.
 type GroupMembers struct {
 	Members []Subject `json:"members"`
 
