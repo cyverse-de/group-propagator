@@ -22,6 +22,8 @@ type memberFixture struct {
 // newGroupsServer serves member listings keyed by group ID only. A request for
 // any other path 404s, so a recursion that follows a nested group's name rather
 // than its ID fails the test rather than quietly returning short membership.
+// Requests are hard-capped so a recursion that stops terminating (e.g. on a
+// membership cycle) fails the test quickly instead of hanging it.
 func newGroupsServer(t *testing.T, membership map[string][]memberFixture) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -38,7 +40,18 @@ func newGroupsServer(t *testing.T, membership map[string][]memberFixture) *httpt
 			}
 		})
 	}
-	return httptest.NewServer(mux)
+
+	const maxRequests = 25
+	var requests int
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests > maxRequests {
+			t.Errorf("more than %d requests; the recursion is probably not terminating", maxRequests)
+			http.Error(w, "too many requests", http.StatusInternalServerError)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
 }
 
 func TestGetGroupMembersFollowsNestingByID(t *testing.T) {
@@ -108,6 +121,52 @@ func TestGetGroupMembersFollowsNestingByID(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A membership cycle (A contains B contains A) can't be built through the
+// groups service API, but it is reachable by editing the database directly.
+// The recursion must terminate on one and return the union of user members;
+// with the AMQP consumer's concurrency of 1, an unterminated recursion would
+// halt all propagation. A revisited group is skipped silently rather than
+// treated as an error, because the same shape occurs legitimately in a
+// diamond (two groups sharing a subgroup).
+func TestGetGroupMembersTerminatesOnCycle(t *testing.T) {
+	const (
+		groupA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaa1111"
+		groupB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbb2222"
+	)
+
+	membership := map[string][]memberFixture{
+		groupA: {
+			{id: "asturm", name: "asturm", sourceID: "ldap"},
+			{id: groupB, name: "Group B", sourceID: "g:gsa"},
+		},
+		groupB: {
+			{id: "bcarter", name: "bcarter", sourceID: "ldap"},
+			{id: groupA, name: "Group A", sourceID: "g:gsa"},
+		},
+	}
+
+	srv := newGroupsServer(t, membership)
+	defer srv.Close()
+
+	client := groups.NewGroupsClient(srv.URL, "de_grouper", "de-users")
+	propagator := NewPropagator(client, "@grouper-", nil)
+
+	got, err := propagator.getGroupMembers(context.Background(), groupA)
+	if err != nil {
+		t.Fatalf("getGroupMembers(%s): %v", groupA, err)
+	}
+	sort.Strings(got)
+	want := []string{"asturm", "bcarter"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
 	}
 }
 

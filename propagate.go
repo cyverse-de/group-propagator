@@ -38,6 +38,14 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 }
 
 func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]string, error) {
+	return p.getGroupMembersVisiting(ctx, groupID, map[string]struct{}{groupID: {}})
+}
+
+// getGroupMembersVisiting is the recursive body of getGroupMembers. The
+// visited set keeps a membership cycle (impossible via the service API, but
+// reachable by editing the database directly) from recursing forever; as a
+// side effect it also fetches a subgroup shared by two parents only once.
+func (p *Propagator) getGroupMembersVisiting(ctx context.Context, groupID string, visited map[string]struct{}) ([]string, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "getGroupMembers")
 	defer span.End()
 
@@ -66,7 +74,14 @@ func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]str
 		case "g:gsa":
 			// A nested group. Its subject ID is the nested group's own group ID,
 			// so the recursion stays keyed by ID all the way down.
-			submem, err := p.getGroupMembers(ctx, member.ID)
+			// Skipping an already-visited group is deliberately silent: a
+			// shared subgroup (diamond) is legitimate, and its members were
+			// already collected the first time through.
+			if _, seen := visited[member.ID]; seen {
+				continue
+			}
+			visited[member.ID] = struct{}{}
+			submem, err := p.getGroupMembersVisiting(ctx, member.ID, visited)
 			if err != nil {
 				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s (%s)", member.Name, member.ID)
 			}
