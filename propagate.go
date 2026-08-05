@@ -60,9 +60,10 @@ func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]str
 	}
 
 	for _, member := range members.Members {
-		if member.SourceID == "ldap" {
+		switch member.SourceID {
+		case "ldap":
 			m = append(m, member.ID)
-		} else if member.SourceID == "g:gsa" {
+		case "g:gsa":
 			// A nested group. Its subject ID is the nested group's own group ID,
 			// so the recursion stays keyed by ID all the way down.
 			submem, err := p.getGroupMembers(ctx, member.ID)
@@ -70,7 +71,7 @@ func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]str
 				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s (%s)", member.Name, member.ID)
 			}
 			m = append(m, submem...)
-		} else {
+		default:
 			log.Errorf("Could not add group member %+v", member)
 		}
 	}
