@@ -89,10 +89,11 @@ func (c *GroupsClient) getJSON(ctx context.Context, uri string, target any) erro
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "Failed requesting URL")
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("GET %s returned %d", uri, resp.StatusCode))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return restutils.NewHTTPError(resp.StatusCode, fmt.Sprintf("GET %s returned %d", uri, resp.StatusCode))
+	}
 
 	if target != nil {
 		err = json.NewDecoder(resp.Body).Decode(target)
