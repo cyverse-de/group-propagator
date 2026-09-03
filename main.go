@@ -36,11 +36,10 @@ amqp:
     name: de
     type: topic
 
-iplant_groups:
-  base: "http://iplant-groups"
-  user: GrouperSystem
-  folder_name_prefix: "iplant:de:notprod"
-  public_group: "iplant:de:notprod"
+groups:
+  base: "http://groups"
+  user: de_grouper
+  de_users_group: de-users
 
 data_info:
   base: "http://data-info"
@@ -121,13 +120,13 @@ func main() {
 	go listenClient.Listen()
 
 	// Create clients
-	gc := groups.NewGroupsClient(configuration.IplantGroupsBase, configuration.IplantGroupsUser, configuration.IplantGroupsPublicGroup)
+	gc := groups.NewGroupsClient(configuration.GroupsBase, configuration.GroupsUser, configuration.DEUsersGroupName)
 
 	err = gc.Check(context.Background())
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "Couldn't ping iplant-groups"))
+		log.Fatal(errors.Wrap(err, "Couldn't ping the groups service"))
 	} else {
-		log.Info("Pinged iplant-groups successfully")
+		log.Info("Pinged the groups service successfully")
 	}
 
 	err = gc.SetGroupsID(context.Background())
@@ -135,6 +134,15 @@ func main() {
 		log.Fatal(errors.Wrap(err, "Couldn't get group information"))
 	} else {
 		log.Info("Group information retrieved successfully")
+	}
+
+	// A non-admin groups user gets access-filtered listings with no error
+	// anywhere, so prove admin standing now rather than propagate nothing.
+	err = gc.VerifyAdminListing(context.Background())
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "Groups service admin check failed"))
+	} else {
+		log.Info("Verified that the groups user sees unfiltered group listings")
 	}
 
 	dc := datainfo.NewDataInfoClient(configuration.DataInfoBase, configuration.IRODSUser)
@@ -146,7 +154,7 @@ func main() {
 	}
 
 	propagator := NewPropagator(gc, "@grouper-", dc)
-	crawler := NewCrawler(gc, configuration.IplantGroupsFolderNamePrefix, gc.GroupsID, publishClient)
+	crawler := NewCrawler(gc, gc.GroupsID, publishClient)
 
 	queueName := getQueueName(configuration.AMQPQueuePrefix)
 	listenClient.AddConsumerMulti(
@@ -158,7 +166,7 @@ func main() {
 			var err error
 			log.Tracef("Got message: %s", del.RoutingKey)
 			if del.RoutingKey == "index.all" || del.RoutingKey == "index.groups" {
-				err = crawler.CrawlGrouperGroups(ctx)
+				err = crawler.CrawlGroups(ctx)
 			} else if strings.HasPrefix(del.RoutingKey, "index.group.") {
 				groupID := del.RoutingKey[len("index.group."):]
 				err = propagator.PropagateGroupById(ctx, groupID)

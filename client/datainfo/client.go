@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/cyverse-de/go-mod/restutils"
 	"github.com/cyverse-de/group-propagator/logging"
@@ -27,7 +28,12 @@ type DataInfoClient struct {
 	DataInfoUser string
 }
 
-var httpClient = http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+// The timeout keeps an unresponsive data-info from hanging the single AMQP
+// consumer goroutine indefinitely.
+var httpClient = http.Client{
+	Transport: otelhttp.NewTransport(http.DefaultTransport),
+	Timeout:   30 * time.Second,
+}
 
 func NewDataInfoClient(base, user string) *DataInfoClient {
 	return &DataInfoClient{base, user}
@@ -58,7 +64,7 @@ func (d *DataInfoClient) reqJSON(ctx context.Context, method, uri string, body i
 	if err != nil {
 		return errors.Wrap(err, "Failed requesting URL")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		var e ServiceError
