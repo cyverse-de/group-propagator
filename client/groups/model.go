@@ -50,6 +50,10 @@ type GroupMembers struct {
 	// empty in that case but the group is not, so propagating it would strip
 	// every member from the iRODS group.
 	Redacted bool `json:"redacted"`
+
+	// Total is the group's whole direct membership, which exceeds Members when
+	// the response carries one page of it.
+	Total int `json:"total"`
 }
 
 // Status is the groups service's GET / response. Keycloak is deliberately not

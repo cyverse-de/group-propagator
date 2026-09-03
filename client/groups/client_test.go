@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -327,4 +329,110 @@ func TestLookupDEUsersGroup(t *testing.T) {
 			t.Errorf("query %s is %q, want %q", key, q.Get(key), want)
 		}
 	}
+}
+
+func TestGetGroupMembersByIDPagesTheListing(t *testing.T) {
+	member := func(i int) Subject {
+		return Subject{ID: fmt.Sprintf("u%04d", i), SourceID: SourceUser}
+	}
+
+	t.Run("collects every page", func(t *testing.T) {
+		const total = 2500
+		var offsets []int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+			limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+			offsets = append(offsets, offset)
+
+			members := []Subject{}
+			for i := offset; i < total && i < offset+limit; i++ {
+				members = append(members, member(i))
+			}
+			if err := json.NewEncoder(w).Encode(GroupMembers{Members: members, Total: total}); err != nil {
+				t.Errorf("encoding page: %v", err)
+			}
+		}))
+		defer srv.Close()
+
+		gm, err := NewGroupsClient(srv.URL, "de_grouper", "de-users").
+			GetGroupMembersByID(context.Background(), "g1")
+		if err != nil {
+			t.Fatalf("GetGroupMembersByID: %v", err)
+		}
+		if len(gm.Members) != total {
+			t.Errorf("collected %d members, want %d", len(gm.Members), total)
+		}
+		if gm.Members[0].ID != "u0000" || gm.Members[total-1].ID != "u2499" {
+			t.Errorf("unexpected first/last member: %q, %q", gm.Members[0].ID, gm.Members[total-1].ID)
+		}
+		// No fourth request: the reported total ends the crawl.
+		want := []int{0, 1000, 2000}
+		if !slices.Equal(offsets, want) {
+			t.Errorf("requested offsets %v, want %v; the offset must advance by what the pages held", offsets, want)
+		}
+	})
+
+	t.Run("refuses a listing that ends short of the reported total", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			members := []Subject{}
+			if r.URL.Query().Get("offset") == "0" {
+				members = append(members, member(0))
+			}
+			if err := json.NewEncoder(w).Encode(GroupMembers{Members: members, Total: 99}); err != nil {
+				t.Errorf("encoding page: %v", err)
+			}
+		}))
+		defer srv.Close()
+
+		_, err := NewGroupsClient(srv.URL, "de_grouper", "de-users").
+			GetGroupMembersByID(context.Background(), "g1")
+		if err == nil {
+			t.Fatal("an incomplete list must not be returned as though it were whole")
+		}
+		if !strings.Contains(err.Error(), "incomplete membership") {
+			t.Errorf("error %q does not name the incomplete membership", err)
+		}
+	})
+
+	t.Run("stops when a page contributes nothing new", func(t *testing.T) {
+		requests := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			requests++
+			// Ignores offset entirely, replaying the same page forever.
+			if err := json.NewEncoder(w).Encode(GroupMembers{Members: []Subject{member(0), member(1)}}); err != nil {
+				t.Errorf("encoding page: %v", err)
+			}
+		}))
+		defer srv.Close()
+
+		gm, err := NewGroupsClient(srv.URL, "de_grouper", "de-users").
+			GetGroupMembersByID(context.Background(), "g1")
+		if err != nil {
+			t.Fatalf("GetGroupMembersByID: %v", err)
+		}
+		if len(gm.Members) != 2 {
+			t.Errorf("collected %d members, want 2; a replayed page must not accumulate duplicates", len(gm.Members))
+		}
+		if requests != 2 {
+			t.Errorf("made %d requests, want 2; the crawl must stop rather than spin", requests)
+		}
+	})
+
+	t.Run("a redacted page is redaction, not an empty group", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if err := json.NewEncoder(w).Encode(GroupMembers{Members: []Subject{}, Redacted: true}); err != nil {
+				t.Errorf("encoding page: %v", err)
+			}
+		}))
+		defer srv.Close()
+
+		gm, err := NewGroupsClient(srv.URL, "de_grouper", "de-users").
+			GetGroupMembersByID(context.Background(), "g1")
+		if err != nil {
+			t.Fatalf("GetGroupMembersByID: %v", err)
+		}
+		if !gm.Redacted || len(gm.Members) != 0 {
+			t.Errorf("redacted=%v with %d members; want redacted with none", gm.Redacted, len(gm.Members))
+		}
+	})
 }

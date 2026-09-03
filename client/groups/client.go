@@ -244,12 +244,69 @@ func (c *GroupsClient) GetGroupMembersByID(ctx context.Context, groupID string) 
 	ctx, span := otel.Tracer(otelName).Start(ctx, "GetGroupMembersByID")
 	defer span.End()
 
+	// Always paged, never asked for unbounded: the service refuses an unpaged
+	// listing of a group larger than its own cap rather than truncating it, and
+	// propagation needs the whole membership -- the data-info update replaces
+	// rather than merges, so a short list removes people from the iRODS group.
+	//
+	// Termination mirrors listGroups: the offset advances by what the pages
+	// actually held and a page contributing no new member ends the crawl.
+	// Stopping on a page shorter than pageSize would truncate silently against a
+	// service whose own cap is lower than what we ask for.
 	var gm GroupMembers
-	uri, err := c.uriPath(ctx, "", "groups", url.PathEscape(groupID), "members")
-	if err != nil {
-		return gm, err
+	seen := make(map[string]struct{})
+	for pages := 0; ; pages++ {
+		if pages >= maxListPages {
+			return gm, errors.Errorf(
+				"the member listing for group %s did not end after %d pages (%d members); this "+
+					"usually means the groups service is ignoring the offset parameter",
+				groupID, maxListPages, len(gm.Members))
+		}
+
+		query := fmt.Sprintf("limit=%d&offset=%d", pageSize, len(gm.Members))
+		uri, err := c.uriPath(ctx, query, "groups", url.PathEscape(groupID), "members")
+		if err != nil {
+			return gm, err
+		}
+
+		var page GroupMembers
+		if err := c.getJSON(ctx, uri, &page); err != nil {
+			return gm, err
+		}
+		// Redaction describes the group, not the page: the membership was
+		// withheld rather than empty, and the caller must not read it as empty.
+		if page.Redacted {
+			return GroupMembers{Redacted: true}, nil
+		}
+		gm.Total = page.Total
+
+		fresh := 0
+		for _, m := range page.Members {
+			if _, dup := seen[m.ID]; dup {
+				continue
+			}
+			seen[m.ID] = struct{}{}
+			gm.Members = append(gm.Members, m)
+			fresh++
+		}
+		if fresh == 0 {
+			break
+		}
+		// The reported total ends the crawl without a further request that would
+		// only come back empty. Under-reporting it cannot truncate the result:
+		// the check below fails when the two disagree in either direction.
+		if page.Total > 0 && len(gm.Members) >= page.Total {
+			break
+		}
 	}
 
-	err = c.getJSON(ctx, uri, &gm)
-	return gm, err
+	// The service reports the group's whole membership alongside each page, so a
+	// crawl ending short of it assembled an incomplete list -- which must not
+	// reach data-info as though it were the whole one.
+	if gm.Total > 0 && len(gm.Members) != gm.Total {
+		return gm, errors.Errorf(
+			"collected %d of the %d members of group %s; refusing to propagate an incomplete membership",
+			len(gm.Members), gm.Total, groupID)
+	}
+	return gm, nil
 }
