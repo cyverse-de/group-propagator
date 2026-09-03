@@ -144,6 +144,63 @@ func TestListAllGroupsHonorsServerCappedPages(t *testing.T) {
 	}
 }
 
+// The crawl ends on an empty page, which assumes the service advances through
+// the listing. A service that did not would keep answering with groups the
+// crawl already has: with the AMQP consumer's concurrency of 1 that wedges the
+// only propagation goroutine while the accumulated listing grows until the pod
+// is OOM-killed, and nothing is logged. The crawl has to give up instead.
+func TestListAllGroupsBoundsTheCrawl(t *testing.T) {
+	tests := []struct {
+		name string
+		// page answers a listing request made at the given offset.
+		page         func(offset int) []Group
+		wantRequests int
+	}{
+		{
+			name:         "offset ignored entirely",
+			page:         func(int) []Group { return []Group{{ID: "group-0000"}, {ID: "group-0001"}} },
+			wantRequests: 2,
+		},
+		{
+			name:         "listing that never runs out",
+			page:         func(offset int) []Group { return []Group{{ID: fmt.Sprintf("group-%06d", offset)}} },
+			wantRequests: maxListPages,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requests int
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/groups" {
+					http.NotFound(w, r)
+					return
+				}
+				requests++
+				if requests > tt.wantRequests {
+					t.Errorf("request %d exceeds the %d expected; the crawl is unbounded", requests, tt.wantRequests)
+					http.Error(w, "too many requests", http.StatusInternalServerError)
+					return
+				}
+				offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(GroupList{Groups: tt.page(offset)}); err != nil {
+					t.Errorf("encoding page: %v", err)
+				}
+			}))
+			defer srv.Close()
+
+			c := NewGroupsClient(srv.URL, "de_grouper", "de-users")
+			if _, err := c.ListAllGroups(context.Background()); err == nil {
+				t.Fatal("expected the crawl to give up, got no error")
+			}
+			if requests != tt.wantRequests {
+				t.Errorf("crawl took %d requests, want %d", requests, tt.wantRequests)
+			}
+		})
+	}
+}
+
 // The groups service answers a non-admin's listing with a 200 and an
 // access-filtered page -- there is no marker distinguishing it from a complete
 // one. A propagator running as such a user would crawl an empty-ish listing
@@ -152,9 +209,13 @@ func TestListAllGroupsHonorsServerCappedPages(t *testing.T) {
 // listing the crawl uses.
 func TestVerifyAdminListing(t *testing.T) {
 	tests := []struct {
-		name    string
-		groups  []Group
-		wantErr bool
+		name   string
+		groups []Group
+		// serverCap is how many groups the fake will return in one response,
+		// standing in for a service whose own cap is smaller than what the
+		// check asks for; 0 means it answers with everything at once.
+		serverCap int
+		wantErr   bool
 	}{
 		{
 			name: "de-users visible",
@@ -163,6 +224,15 @@ func TestVerifyAdminListing(t *testing.T) {
 				{ID: "def456", Name: "grouper-all", GroupType: "system"},
 			},
 			wantErr: false,
+		},
+		{
+			name: "de-users past the first page",
+			groups: []Group{
+				{ID: "def456", Name: "grouper-all", GroupType: "system"},
+				{ID: "abc123", Name: "de-users", GroupType: "system"},
+			},
+			serverCap: 1,
+			wantErr:   false,
 		},
 		{
 			name: "listing access-filtered",
@@ -187,8 +257,18 @@ func TestVerifyAdminListing(t *testing.T) {
 					return
 				}
 				gotQuery = r.URL.Query()
+				limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+				if tt.serverCap > 0 && limit > tt.serverCap {
+					limit = tt.serverCap
+				}
+				offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+				page := []Group{}
+				for i := offset; i < offset+limit && i < len(tt.groups); i++ {
+					page = append(page, tt.groups[i])
+				}
 				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(GroupList{Groups: tt.groups}); err != nil {
+				if err := json.NewEncoder(w).Encode(GroupList{Groups: page}); err != nil {
 					t.Errorf("encoding listing: %v", err)
 				}
 			}))

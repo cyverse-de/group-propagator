@@ -1,5 +1,16 @@
 package groups
 
+// Subject source identifiers, matching the values the groups service sets on
+// Subject.SourceID.
+const (
+	SourceUser  = "ldap"
+	SourceGroup = "g:gsa"
+)
+
+// GroupTypeSystem is the group type the DE's own internal groups carry, as
+// opposed to the collaborator lists, teams, and communities users create.
+const GroupTypeSystem = "system"
+
 // Subject is one member of a group: an LDAP user or, when SourceID is
 // "g:gsa", a nested group whose ID is the nested group's own group ID.
 type Subject struct {

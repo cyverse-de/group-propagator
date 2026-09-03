@@ -43,7 +43,7 @@ func (c *GroupsClient) getDEUsersGroup(ctx context.Context) (*Group, error) {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "getDEUsersGroup")
 	defer span.End()
 
-	uri, err := c.uriPath(ctx, fmt.Sprintf("group_type=system&name=%s", url.QueryEscape(c.DEUsersGroupName)),
+	uri, err := c.uriPath(ctx, fmt.Sprintf("group_type=%s&name=%s", GroupTypeSystem, url.QueryEscape(c.DEUsersGroupName)),
 		"groups", "lookup")
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to build the de-users lookup URL")
@@ -127,24 +127,39 @@ func (c *GroupsClient) Check(ctx context.Context) error {
 // single response at 1000, so anything larger would be silently trimmed.
 const pageSize = 1000
 
-// ListAllGroups returns every group the service knows about, following
-// pagination to the end. The groups service is already scoped to one
-// deployment's group data, so there is no folder or prefix to filter on.
-func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
-	ctx, span := otel.Tracer(otelName).Start(ctx, "ListAllGroups")
-	defer span.End()
+// maxListPages bounds a listing crawl. At pageSize per page this covers orders
+// of magnitude more groups than a deployment holds, so reaching it means the
+// crawl is not making progress rather than that the deployment is large.
+const maxListPages = 1000
 
+// listGroups follows a group listing to its end, restricted to one group type
+// when groupType is non-empty.
+func (c *GroupsClient) listGroups(ctx context.Context, groupType string) ([]Group, error) {
 	// The offset advances by what each page actually held, and only an empty
 	// page ends the crawl. Keying either off the requested pageSize would
 	// silently truncate the listing if the service ever clamps responses
 	// below what we asked for.
 	var all []Group
-	for offset := 0; ; offset = len(all) {
-		uri, err := c.uriPath(ctx, fmt.Sprintf("limit=%d&offset=%d", pageSize, offset), "groups")
+	seen := make(map[string]struct{})
+	for pages := 0; ; pages++ {
+		// A listing that never empties and never contributes a new group would
+		// otherwise spin forever, and with the AMQP consumer's concurrency of 1
+		// that halts all propagation while the accumulated slice grows.
+		if pages >= maxListPages {
+			return all, errors.Errorf(
+				"the group listing did not end after %d pages (%d groups); this usually means the "+
+					"groups service is ignoring the offset parameter", maxListPages, len(all))
+		}
+
+		query := fmt.Sprintf("limit=%d&offset=%d", pageSize, len(all))
+		if groupType != "" {
+			query = fmt.Sprintf("group_type=%s&%s", url.QueryEscape(groupType), query)
+		}
+		uri, err := c.uriPath(ctx, query, "groups")
 		if err != nil {
 			return all, err
 		}
-		log.Debugf("ListAllGroups uri: %s", uri)
+		log.Debugf("listGroups uri: %s", uri)
 
 		var page GroupList
 		if err := c.getJSON(ctx, uri, &page); err != nil {
@@ -153,8 +168,32 @@ func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
 		if len(page.Groups) == 0 {
 			return all, nil
 		}
+
+		fresh := 0
+		for _, g := range page.Groups {
+			if _, dup := seen[g.ID]; dup {
+				continue
+			}
+			seen[g.ID] = struct{}{}
+			fresh++
+		}
+		if fresh == 0 {
+			return all, errors.Errorf(
+				"the group listing repeated a page of %d groups at offset %d; this usually means the "+
+					"groups service is ignoring the offset parameter", len(page.Groups), len(all))
+		}
 		all = append(all, page.Groups...)
 	}
+}
+
+// ListAllGroups returns every group the service knows about, following
+// pagination to the end. The groups service is already scoped to one
+// deployment's group data, so there is no folder or prefix to filter on.
+func (c *GroupsClient) ListAllGroups(ctx context.Context) ([]Group, error) {
+	ctx, span := otel.Tracer(otelName).Start(ctx, "ListAllGroups")
+	defer span.End()
+
+	return c.listGroups(ctx, "")
 }
 
 // VerifyAdminListing proves the configured user gets unfiltered group
@@ -166,16 +205,11 @@ func (c *GroupsClient) VerifyAdminListing(ctx context.Context) error {
 	ctx, span := otel.Tracer(otelName).Start(ctx, "VerifyAdminListing")
 	defer span.End()
 
-	uri, err := c.uriPath(ctx, fmt.Sprintf("group_type=system&limit=%d&offset=0", pageSize), "groups")
+	system, err := c.listGroups(ctx, GroupTypeSystem)
 	if err != nil {
-		return errors.Wrap(err, "Failed to build the system group listing URL")
-	}
-
-	var page GroupList
-	if err := c.getJSON(ctx, uri, &page); err != nil {
 		return errors.Wrap(err, "Failed listing system groups")
 	}
-	for _, g := range page.Groups {
+	for _, g := range system {
 		if g.ID == c.GroupsID {
 			return nil
 		}

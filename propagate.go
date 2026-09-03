@@ -13,9 +13,9 @@ import (
 )
 
 // To propagate a group:
-// * Fetch group details and members via iplant-groups
-//   -> get a model.GrouperGroup and model.GrouperGroupMembers, probably
-// * Determine iRODS group name (@grouper-<GrouperGroup.ID>)
+// * Fetch group details and members via the groups service
+//   -> get a groups.Group and groups.GroupMembers
+// * Determine iRODS group name (@grouper-<Group.ID>)
 // * Create or update group with proper membership list via data-info, potentially validating users/etc.
 
 type Propagator struct {
@@ -38,7 +38,28 @@ func NewPropagator(groupsClient *groups.GroupsClient, groupPrefix string, dataIn
 }
 
 func (p *Propagator) getGroupMembers(ctx context.Context, groupID string) ([]string, error) {
-	return p.getGroupMembersVisiting(ctx, groupID, map[string]struct{}{groupID: {}})
+	m, err := p.getGroupMembersVisiting(ctx, groupID, map[string]struct{}{groupID: {}})
+	if err != nil {
+		return nil, err
+	}
+	return dedupeMembers(m), nil
+}
+
+// dedupeMembers keeps the first occurrence of each member. A user reached both
+// directly and through a subgroup appears once per path, which data-info would
+// take at face value and the propagation log would report as a member count
+// larger than the group has.
+func dedupeMembers(members []string) []string {
+	seen := make(map[string]struct{}, len(members))
+	deduped := make([]string, 0, len(members))
+	for _, m := range members {
+		if _, dup := seen[m]; dup {
+			continue
+		}
+		seen[m] = struct{}{}
+		deduped = append(deduped, m)
+	}
+	return deduped
 }
 
 // getGroupMembersVisiting is the recursive body of getGroupMembers. The
@@ -69,9 +90,9 @@ func (p *Propagator) getGroupMembersVisiting(ctx context.Context, groupID string
 
 	for _, member := range members.Members {
 		switch member.SourceID {
-		case "ldap":
+		case groups.SourceUser:
 			m = append(m, member.ID)
-		case "g:gsa":
+		case groups.SourceGroup:
 			// A nested group. Its subject ID is the nested group's own group ID,
 			// so the recursion stays keyed by ID all the way down.
 			// Skipping an already-visited group is deliberately silent: a
@@ -87,7 +108,14 @@ func (p *Propagator) getGroupMembersVisiting(ctx context.Context, groupID string
 			}
 			m = append(m, submem...)
 		default:
-			log.Errorf("Could not add group member %+v", member)
+			// Skipping the member instead would PUT a short list to data-info,
+			// which replaces rather than merges, dropping people from the iRODS
+			// group under a log line that reads like a successful run.
+			return nil, errors.Errorf(
+				"member %s (%s) of group %s has the unexpected source id %q; this usually means the "+
+					"groups service gained a subject source this propagator does not know how to "+
+					"resolve, and propagating without the member would remove it from the iRODS group",
+				member.Name, member.ID, groupID, member.SourceID)
 		}
 	}
 
@@ -114,9 +142,9 @@ func (p *Propagator) PropagateGroupById(ctx context.Context, groupID string) err
 		}
 		return err
 	} else if err != nil {
-		return errors.Wrap(err, "Failed fetching Grouper group by ID")
+		return errors.Wrap(err, "Failed fetching group by ID")
 	} else if groupID != g.ID {
-		return errors.New(fmt.Sprintf("Fetched Grouper group has an ID of %s, but was fetched using the ID %s", g.ID, groupID))
+		return errors.Errorf("Fetched group has an ID of %s, but was fetched using the ID %s", g.ID, groupID)
 	}
 
 	irodsMembers, err := p.getGroupMembers(ctx, groupID)

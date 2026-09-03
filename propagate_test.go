@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"testing"
 
@@ -199,5 +200,157 @@ func TestGetGroupMembersRefusesRedactedList(t *testing.T) {
 	}
 	if len(members) != 0 {
 		t.Errorf("no members should be returned alongside the refusal, got %d", len(members))
+	}
+}
+
+// A member whose source the propagator cannot resolve has to abort the
+// propagation. Logging and skipping it hands data-info a short list, and the
+// member update replaces rather than merges, so the unresolved member is
+// dropped from the iRODS group under a log line that reads like an ordinary
+// successful run -- the same failure the redacted-list refusal exists to stop.
+func TestGetGroupMembersRefusesUnknownSource(t *testing.T) {
+	const (
+		parent = "4444444444444444444444444444dddd"
+		child  = "5555555555555555555555555555eeee"
+	)
+
+	tests := []struct {
+		name       string
+		membership map[string][]memberFixture
+		want       []string
+		wantErr    bool
+	}{
+		{
+			name: "known sources only",
+			membership: map[string][]memberFixture{
+				parent: {
+					{id: "asturm", name: "asturm", sourceID: "ldap"},
+					{id: child, name: "Genomics Lab", sourceID: "g:gsa"},
+				},
+				child: {{id: "bcarter", name: "bcarter", sourceID: "ldap"}},
+			},
+			want: []string{"asturm", "bcarter"},
+		},
+		{
+			name: "unrecognized source id",
+			membership: map[string][]memberFixture{
+				parent: {
+					{id: "asturm", name: "asturm", sourceID: "ldap"},
+					{id: "svc-account", name: "svc-account", sourceID: "jdbc"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing source id",
+			membership: map[string][]memberFixture{
+				parent: {{id: "asturm", name: "asturm", sourceID: ""}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unrecognized source id inside a nested group",
+			membership: map[string][]memberFixture{
+				parent: {{id: child, name: "Genomics Lab", sourceID: "g:gsa"}},
+				child:  {{id: "svc-account", name: "svc-account", sourceID: "jdbc"}},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newGroupsServer(t, tt.membership)
+			defer srv.Close()
+
+			client := groups.NewGroupsClient(srv.URL, "de_grouper", "de-users")
+			propagator := NewPropagator(client, "@grouper-", nil)
+
+			got, err := propagator.getGroupMembers(context.Background(), parent)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected a refusal, got %v and no error", got)
+				}
+				if len(got) != 0 {
+					t.Errorf("no members should be returned alongside the refusal, got %d", len(got))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("getGroupMembers(%s): %v", parent, err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Nesting reaches the same user by more than one path whenever someone belongs
+// to a group and to one of its subgroups. The visited set only keeps each group
+// from being fetched twice, so the member list itself has to be deduplicated:
+// otherwise data-info is handed repeats and the propagation log reports more
+// members than the group has.
+func TestGetGroupMembersDeduplicates(t *testing.T) {
+	const (
+		parent = "6666666666666666666666666666ffff"
+		left   = "7777777777777777777777777777aaaa"
+		right  = "8888888888888888888888888888bbbb"
+	)
+
+	tests := []struct {
+		name       string
+		membership map[string][]memberFixture
+		// Order is first occurrence in the crawl, so a change here is a change
+		// in what data-info is handed.
+		want []string
+	}{
+		{
+			name: "member of both a group and its subgroup",
+			membership: map[string][]memberFixture{
+				parent: {
+					{id: "msmith", name: "msmith", sourceID: "ldap"},
+					{id: left, name: "Genomics Lab", sourceID: "g:gsa"},
+				},
+				left: {
+					{id: "msmith", name: "msmith", sourceID: "ldap"},
+					{id: "rpatel", name: "rpatel", sourceID: "ldap"},
+				},
+			},
+			want: []string{"msmith", "rpatel"},
+		},
+		{
+			name: "two subgroups sharing a member",
+			membership: map[string][]memberFixture{
+				parent: {
+					{id: left, name: "Genomics Lab", sourceID: "g:gsa"},
+					{id: right, name: "Field Team", sourceID: "g:gsa"},
+				},
+				left: {{id: "rpatel", name: "rpatel", sourceID: "ldap"}},
+				right: {
+					{id: "rpatel", name: "rpatel", sourceID: "ldap"},
+					{id: "lchen", name: "lchen", sourceID: "ldap"},
+				},
+			},
+			want: []string{"rpatel", "lchen"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newGroupsServer(t, tt.membership)
+			defer srv.Close()
+
+			client := groups.NewGroupsClient(srv.URL, "de_grouper", "de-users")
+			propagator := NewPropagator(client, "@grouper-", nil)
+
+			got, err := propagator.getGroupMembers(context.Background(), parent)
+			if err != nil {
+				t.Fatalf("getGroupMembers(%s): %v", parent, err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
