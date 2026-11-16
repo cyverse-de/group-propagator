@@ -9,7 +9,7 @@ import (
 	"github.com/cyverse-de/configurate"
 	l "github.com/cyverse-de/go-mod/logging"
 	"github.com/cyverse-de/go-mod/otelutils"
-	"github.com/cyverse-de/messaging/v9"
+	"github.com/cyverse-de/messaging/v12"
 
 	"github.com/cyverse-de/group-propagator/client/datainfo"
 	"github.com/cyverse-de/group-propagator/client/groups"
@@ -17,9 +17,9 @@ import (
 	"github.com/cyverse-de/group-propagator/logging"
 
 	"github.com/pkg/errors"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/streadway/amqp"
 )
 
 var log = logging.Log.WithFields(logrus.Fields{"package": "main"})
