@@ -49,16 +49,17 @@ func (p *Propagator) getGroupMembers(ctx context.Context, groupName string) ([]s
 	}
 
 	for _, member := range members.Members {
-		if member.SourceID == "ldap" {
+		switch member.SourceID {
+		case "ldap":
 			m = append(m, member.ID)
-		} else if member.SourceID == "g:gsa" {
+		case "g:gsa":
 			// this is a group that is a member of a group
 			submem, err := p.getGroupMembers(ctx, member.Name)
 			if err != nil {
 				return m, errors.Wrapf(err, "Failed recursing to fetch members of %s", member.Name)
 			}
 			m = append(m, submem...)
-		} else {
+		default:
 			log.Errorf("Could not add group member %+v", member)
 		}
 	}
