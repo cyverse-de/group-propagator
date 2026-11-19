@@ -1,4 +1,4 @@
-FROM golang:1.21 as build-root
+FROM golang:1.27 AS build-root
 
 WORKDIR /go/src/github.com/cyverse-de/group-propagator
 
